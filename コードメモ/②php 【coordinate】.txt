@@ -1,0 +1,250 @@
+「reset_click_data.php」
+<?php
+require_once(__DIR__ . "/MYDB.php");
+
+header('Content-Type: application/json');
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $user_id = $input['user_id'];
+    $video_id = $input['video_id'];
+
+    try {
+        $pdo = db_connect();
+
+        // クリックデータを削除
+        $stmt = $pdo->prepare("DELETE FROM click_coordinates WHERE user_id = :user_id AND video_id = :video_id");
+        $stmt->bindValue(':user_id', $user_id, PDO::PARAM_INT);
+        $stmt->bindValue(':video_id', $video_id, PDO::PARAM_STR);
+        $stmt->execute();
+
+        // クリックカウントをリセット
+        $stmt = $pdo->prepare("UPDATE click_counts SET click_count = 0 WHERE user_id = :user_id AND video_id = :video_id");
+        $stmt->bindValue(':user_id', $user_id, PDO::PARAM_INT);
+        $stmt->bindValue(':video_id', $video_id, PDO::PARAM_STR);
+        $stmt->execute();
+
+        echo json_encode(['status' => 'success']);
+    } catch (PDOException $e) {
+        echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+    }
+} else {
+    echo json_encode(['status' => 'error', 'message' => 'Invalid request method']);
+}
+?>
+
+
+
+「save_comment.php」
+<?php
+require_once("MYDB.php");
+$pdo = db_connect();
+
+$data = json_decode(file_get_contents('php://input'), true);
+
+$user_id = $data['user_id'];
+$x = $data['x'];
+$y = $data['y'];
+$click_time = $data['click_time'];
+$video_id = $data['video_id'];
+$comment = isset($data['comment']) ? $data['comment'] : null;
+
+try {
+    $pdo->beginTransaction();
+
+    // コメントを含む座標データを保存
+    $stmt = $pdo->prepare("INSERT INTO click_coordinates (user_id, x_coordinate, y_coordinate, click_time, video_id, comment) VALUES (:user_id, :x, :y, :click_time, :video_id, :comment)");
+    $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+    $stmt->bindParam(':x', $x, PDO::PARAM_INT);
+    $stmt->bindParam(':y', $y, PDO::PARAM_INT);
+    $stmt->bindParam(':click_time', $click_time, PDO::PARAM_STR);
+    $stmt->bindParam(':video_id', $video_id, PDO::PARAM_STR);
+    $stmt->bindParam(':comment', $comment, PDO::PARAM_STR);
+    $stmt->execute();
+
+    $pdo->commit();
+
+    echo json_encode(["status" => "success"]);
+} catch (Exception $e) {
+    $pdo->rollBack();
+    echo json_encode(["status" => "error", "error" => $e->getMessage()]);
+}
+$pdo = null;
+?>
+
+
+
+「save_coordinates.php」
+<?php
+/**
+ * 最新のクリック座標を保存するスクリプト
+ */
+
+require_once("MYDB.php");
+$pdo = db_connect();
+
+// JSONデータを取得
+$input = file_get_contents('php://input');
+$data = json_decode($input, true);
+
+if (json_last_error() !== JSON_ERROR_NONE) {
+    echo json_encode(["status" => "error", "error" => "Invalid JSON data"]);
+    exit();
+}
+
+$user_id = $data['user_id'] ?? null;
+$x = $data['x'] ?? null;
+$y = $data['y'] ?? null;
+$click_time = $data['click_time'] ?? null;
+$video_id = $data['video_id'] ?? null;
+$comment = $data['comment'] ?? null;
+
+if ($user_id === null || $x === null || $y === null || $click_time === null || $video_id === null) {
+    echo json_encode(["status" => "error", "error" => "Missing data"]);
+    exit();
+}
+
+try {
+    $stmt = $pdo->prepare("INSERT INTO click_coordinates (user_id, x_coordinate, y_coordinate, click_time, video_id, comment) VALUES (:user_id, :x, :y, :click_time, :video_id, :comment)");
+    $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+    $stmt->bindParam(':x', $x, PDO::PARAM_INT);
+    $stmt->bindParam(':y', $y, PDO::PARAM_INT);
+    $stmt->bindParam(':click_time', $click_time, PDO::PARAM_STR);
+    $stmt->bindParam(':video_id', $video_id, PDO::PARAM_STR);
+    $stmt->bindParam(':comment', $comment, PDO::PARAM_STR);
+    $stmt->execute();
+
+    echo json_encode(["status" => "success"]);
+} catch (Exception $e) {
+    echo json_encode(["status" => "error", "error" => $e->getMessage()]);
+    exit();
+}
+
+// 現在のクリック座標データを取得
+try {
+    $stmt = $pdo->prepare("SELECT * FROM click_coordinates WHERE user_id = :user_id AND video_id = :video_id ORDER BY id DESC");
+    $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+    $stmt->bindParam(':video_id', $video_id, PDO::PARAM_STR);
+    $stmt->execute();
+    $remaining_clicks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    echo json_encode(["status" => "error", "error" => $e->getMessage()]);
+    exit();
+}
+
+// ログファイルに書き込む（幅を指定してフォーマット）
+$log_message = sprintf("%-4s %-8s %-4s %-4s %-11s %-12s %-20s\n", "ID", "User ID", "X", "Y", "Click Time", "Video ID", "Comment");
+foreach ($remaining_clicks as $click) {
+    $log_message .= sprintf(
+        "%-4d %-8d %-4d %-4d %-11s %-12s %-20s\n",
+        $click['id'],
+        $click['user_id'],
+        $click['x_coordinate'],
+        $click['y_coordinate'],
+        $click['click_time'],
+        $click['video_id'],
+        substr($click['comment'], 0, 20) // コメントの長さを20文字に制限
+    );
+}
+file_put_contents('now_clicks_log.txt', $log_message);
+
+$pdo = null;
+?>
+
+
+「session_start.php」
+<?php
+/**
+ * セッションの開始とユーザーIDのチェック
+ */
+    session_start();
+    if (!isset($_SESSION['user_id'])) {
+        header('Location: login.html');
+        exit();
+    }
+?>
+
+
+
+「update_click_count.php」
+<?php
+require_once(__DIR__ . "/MYDB.php");
+
+header('Content-Type: application/json');
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $user_id = $input['user_id'];
+    $video_id = $input['video_id'];
+
+    try {
+        $pdo = db_connect();
+        // クリック数を取得
+        $stmt = $pdo->prepare("SELECT click_count FROM click_counts WHERE user_id = :user_id AND video_id = :video_id");
+        $stmt->bindValue(':user_id', $user_id, PDO::PARAM_INT);
+        $stmt->bindValue(':video_id', $video_id, PDO::PARAM_STR);
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($row) {
+            // クリック数を更新
+            $new_count = $row['click_count'] + 1;
+            $stmt = $pdo->prepare("UPDATE click_counts SET click_count = :click_count WHERE user_id = :user_id AND video_id = :video_id");
+            $stmt->bindValue(':click_count', $new_count, PDO::PARAM_INT);
+            $stmt->bindValue(':user_id', $user_id, PDO::PARAM_INT);
+            $stmt->bindValue(':video_id', $video_id, PDO::PARAM_STR);
+            $stmt->execute();
+        } else {
+            // 新しいレコードを挿入
+            $stmt = $pdo->prepare("INSERT INTO click_counts (user_id, video_id, click_count) VALUES (:user_id, :video_id, 1)");
+            $stmt->bindValue(':user_id', $user_id, PDO::PARAM_INT);
+            $stmt->bindValue(':video_id', $video_id, PDO::PARAM_STR);
+            $stmt->execute();
+        }
+
+        echo json_encode(['status' => 'success']);
+    } catch (PDOException $e) {
+        echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+    }
+} else {
+    echo json_encode(['status' => 'error', 'message' => 'Invalid request method']);
+}
+?>
+
+
+「update_comment.php」
+<?php
+require_once("MYDB.php");
+$pdo = db_connect();
+
+$data = json_decode(file_get_contents('php://input'), true);
+
+$user_id = $data['user_id'];
+$x = $data['x'];
+$y = $data['y'];
+$click_time = $data['click_time'];
+$video_id = $data['video_id'];
+$comment = isset($data['comment']) ? $data['comment'] : null;
+
+try {
+    $pdo->beginTransaction();
+
+    // 最新の座標データにコメントを追加
+    $stmt = $pdo->prepare("UPDATE click_coordinates SET comment = :comment WHERE user_id = :user_id AND video_id = :video_id AND x_coordinate = :x AND y_coordinate = :y AND click_time = :click_time");
+    $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+    $stmt->bindParam(':x', $x, PDO::PARAM_INT);
+    $stmt->bindParam(':y', $y, PDO::PARAM_INT);
+    $stmt->bindParam(':click_time', $click_time, PDO::PARAM_STR);
+    $stmt->bindParam(':video_id', $video_id, PDO::PARAM_STR);
+    $stmt->bindParam(':comment', $comment, PDO::PARAM_STR);
+    $stmt->execute();
+
+    $pdo->commit();
+
+    echo json_encode(["status" => "success"]);
+} catch (Exception $e) {
+    $pdo->rollBack();
+    echo json_encode(["status" => "error", "error" => $e->getMessage()]);
+}
+$pdo = null;
+?>

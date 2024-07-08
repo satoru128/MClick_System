@@ -1,0 +1,543 @@
+【user_registration】
+「data_check.php」
+<?php
+/**
+ * 入力された値の確認をする関数の定義 
+ */
+function check_input($name, $user_id, $password, $password_confirm, &$error) {
+    $error = "";
+    //  空欄がないかどうかのチェック
+    if ($name === "" or $user_id === "" or $password === "" or $password_confirm === "") {
+        $error = "※入力されていない値があります";
+        return false;
+    }
+    //  idが正しく入力されているかをチェック
+    if (!preg_match("/[0-9]{4}/", $user_id)) {
+        $error = "※idとパスワード は、4文字の半角、数字で入力してください";
+        return false;
+    }
+    // パスワードが一致するかをチェック
+    if ($password !== $password_confirm) {
+        $error = "※パスワードが一致しません";
+        return false;
+    }
+    return true;
+}
+?>
+「dbmanager.php」
+<?php
+/**
+ * データベースを管理するクラス 
+ */
+class DBManager {
+    private $conn;
+
+    public function __construct() {
+        // データベース接続情報
+        $db_host = 'localhost'; // データベースホスト
+        $db_name = 'coordinates_db'; // データベース名
+        $db_user = 'root'; // データベースユーザー名
+        $db_pass = 'satoru0411'; // データベースパスワード
+        
+        // データベース接続
+        try {
+            $this->conn = new PDO("mysql:host={$db_host};dbname={$db_name}", $db_user, $db_pass);
+            $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        } catch (PDOException $e) {
+            // データベース接続エラー
+            echo "データベースに接続できませんでした。エラー: " . $e->getMessage();
+            exit;
+        }
+    }
+    //  データベースへの接続
+    private function connect() {
+        $this->db = new PDO($this->access_info, $this->user, $this->password);
+    }
+    //  データベースへの接続解除
+    private function disconnect() {
+        $this->db = null;
+    }
+
+    //  学生情報の削除
+    public function delete_user($user_id) {
+        try {
+            $stmt = $this->conn->prepare("DELETE FROM users WHERE user_id = :user_id");
+            $stmt->bindParam(':user_id', $user_id);
+            return $stmt->execute();
+        } catch (PDOException $e) {
+            echo "ユーザー情報の削除中にエラーが発生しました。エラー: " . $e->getMessage();
+            exit;
+        }
+    }
+
+    //  特定の学生情報の取得
+    public function get_user($user_id) {
+        try {
+            $stmt = $this->conn->prepare("SELECT * FROM users WHERE user_id = :user_id");
+            $stmt->bindParam(':user_id', $user_id);
+            $stmt->execute();
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            echo "ユーザー情報の取得中にエラーが発生しました。エラー: " . $e->getMessage();
+            exit;
+        }
+    }
+
+    //  テーブルから学生一覧の取得
+    public function get_all_user() {
+        try {
+            $stmt = $this->conn->prepare("SELECT * FROM users");
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            echo "データを取得できませんでした。エラー: " . $e->getMessage();
+            exit;
+        }
+    }
+
+    public function get_user_by_id($user_id) {
+        $stmt = $this->conn->prepare('SELECT * FROM users WHERE user_id = :user_id');
+        $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    //  学生情報の挿入
+    public function insert_user($name, $user_id, $password) {
+        try {
+            $stmt = $this->conn->prepare("INSERT INTO users (name, user_id, password) VALUES (:name, :user_id, :password)");
+            $stmt->bindParam(':name', $name);
+            $stmt->bindParam(':user_id', $user_id);
+            $stmt->bindParam(':password', $password);
+            return $stmt->execute();
+        } catch (PDOException $e) {
+            echo "ユーザー情報の挿入中にエラーが発生しました。エラー: " . $e->getMessage();
+            exit;
+        }
+    }
+
+    //  $idで指定した学生情報が存在するかを調べる
+    public function if_id_exists($user_id) {
+        try {
+            $stmt = $this->conn->prepare("SELECT COUNT(*) FROM users WHERE user_id = :user_id");
+            $stmt->bindParam(':user_id', $user_id);
+            $stmt->execute();
+            $count = $stmt->fetchColumn();
+            return $count > 0;
+        } catch (PDOException $e) {
+            echo "ユーザーIDの存在確認中にエラーが発生しました。エラー: " . $e->getMessage();
+            exit;
+        }
+    }
+
+    public function update_user($name, $user_id, $password, $old_user_id) {
+        try {
+            $stmt = $this->conn->prepare("UPDATE users SET name = :name, user_id = :user_id, password = :password WHERE user_id = :old_user_id");
+            $stmt->bindParam(':name', $name);
+            $stmt->bindParam(':user_id', $user_id);
+            $stmt->bindParam(':password', $password);
+            $stmt->bindParam(':old_user_id', $old_user_id);
+            return $stmt->execute();
+        } catch (PDOException $e) {
+            echo "ユーザー情報の更新中にエラーが発生しました。エラー: " . $e->getMessage();
+            exit;
+        }
+    }
+}
+?>
+
+「html_functions.php」
+<link rel="stylesheet" href="style.css">
+<?php
+/**
+ * HTML出力に関する関数を定義 
+ */
+
+//  HTML上部を表示する
+function show_top($heading="登録情報一覧") {
+    echo <<<USERS_LIST
+    <html>
+        <head>
+            <title>{$heading}</title>
+            <link rel="stylesheet"  href="styles.css">
+        </head>
+    <body>
+        <h1>{$heading}</h1>
+    USERS_LIST;
+}
+
+//  HTML下部を表示する
+function show_bottom($return_top=false) {
+    //  $return_topがtrueなら、トップに戻るリンクを付ける
+    if ($return_top == true) {
+        echo <<<BACK_TOP
+            <br>
+            <a href="index.php">登録情報一覧へ</a>
+        BACK_TOP;
+    }
+    echo <<<BOTTOM
+        </body>
+    </html>
+    BOTTOM;
+}
+
+//  登録フォームの表示
+function show_input() {
+    $error = get_error();
+    show_edit_input_common("", "", "", "", "create", "登録");    
+}
+
+//  削除フォームの表示
+function show_delete($member) {
+    if($member != null) {
+        show_user($member);
+    }
+    $error = get_error();
+    echo <<<DELETE
+        <form action="post_data.php" method="post">
+            <p>この情報を削除しますか？</p>
+            <p>{$error}</p> 
+            <input type="hidden" name="user_id" value="{$member["user_id"]}"/>
+            <input type="hidden" name="data" value="delete"/>
+            <br>
+            <br>
+            <input type="submit" value="削除" class="button-link">
+        </form>
+    DELETE;        
+}
+
+//  更新フォームの表示
+function show_update($name, $user_id, $password, $old_user_id) {
+    show_edit_input_common($name, $user_id, $password, $old_user_id, "update", "更新");
+}
+
+//  挿入フォーム・更新フォームの表示
+function show_edit_input_common($name, $user_id, $password, $old_user_id, $data, $button) {
+    $error = get_error();
+    //  フォームの上部を表示
+    echo <<<INPUT_TOP
+    <form action="post_data.php" method="post" onsubmit="return validateForm()">
+        <p>名前：<br>
+        <input type="text" name="name" placeholder="例）山田太郎" value="{$name}">
+        </p>
+        <p>id：<br>
+        <input type="text" name="user_id" placeholder="例）1111" value="{$user_id}" pattern="[0-9]{4}" title="4文字の半角、数字で入力してください">
+        </p>
+        <p>パスワード：<br>
+        <input type="password" name="password" placeholder="例）2222" value="{$password}" pattern="[0-9]{4}" title="4文字の半角、数字で入力してください">
+        </p>
+        <p>パスワードの確認：<br>
+        <input type="password" name="password_confirm" placeholder="例）2222" pattern="[0-9]{4}" title="4文字の半角、数字で入力してください">
+        </p>
+    INPUT_TOP;
+    
+    //  フォームの下部を表示
+    echo <<<INPUT_BOTTOM
+        <p>{$error}</p>
+        <input type="hidden" name="old_user_id" value="{$old_user_id}">
+        <input type="hidden" name="data" value="{$data}">
+        <br>
+        <br>
+        <input type="submit" value="{$button}">
+    </form>
+    <!-- ログイン画面へのリンク -->
+    <p>すでにアカウントをお持ちの場合は、<a href="../../login/login.php">ログイン</a>してください。</p>
+
+    INPUT_BOTTOM;        
+}
+
+//  登録情報一覧を表示する
+function show_user_list($members) {
+    //  テーブルのトップを表示
+    echo <<<TABLE_TOP
+    <table border="1" style="border-collapse:collapse">
+        <tr>
+            <th>名前</th><th width="100px">id</th><th>パスワード</th><th>登録情報</th>
+        </tr>
+    TABLE_TOP;
+    
+    //foreach：要素を順番に処理するためのループ構文（$members配列の要素を順番に処理）
+    //as &loop：代入先
+    foreach($members as $loop) {
+        // パスワードを隠す
+        $hidden_password = str_repeat('*', strlen($loop["password"]));
+        //  ヒアドキュメントでデータを表示
+        echo <<<END
+        <tr align="center">    
+            <td>{$loop["name"]}</td>
+            <td>{$loop["user_id"]}</td>
+            <td>{$hidden_password}</td>
+            <input type="hidden" name="user_id" value="{$loop["user_id"]}">
+            <td>
+                <form action="check_password.php" method="post" style="display:inline;">
+                    <input type="hidden" name="user_id" value="{$loop["user_id"]}">
+                    <input type="password" name="password" placeholder="パスワードを入力">
+                    <input type="submit" value="編集" class="button-link">
+                </form>
+            </td>
+        </tr>
+        END;
+    }
+    //  テーブルの下部分の表示
+    echo <<<TABLE_BOTTOM
+    </table>
+    <br>
+    <!-- ログイン画面へのリンク -->
+    <p>すでにアカウントをお持ちの場合は、<a href="../../login/login.php">ログイン</a>してください。</p>
+
+    TABLE_BOTTOM;
+}
+
+//  特定の登録情報を表示する
+function show_user($member) {
+    // パスワードを隠す
+    //$hidden_password = str_repeat('*', strlen($member["password"]));
+    //<td>{$hidden_password}</td> に書き換える。
+    
+    //  テーブルのトップを表示
+    echo <<<USER
+    <table border="1" style="border-collapse:collapse">
+        <tr>
+            <th>名前</th><th width="100px">id</th><th>パスワード</th>
+        </tr>
+        <tr align="center">
+            <td>{$member["name"]}</td>
+            <td>{$member["user_id"]}</td>
+            <td>{$member["password"]}</td>
+        </tr>
+    </table>
+    <br>
+    USER;
+}
+
+//  選択編集画面の操作の一覧の表示
+function show_operations($user_id) {
+    echo <<<OPERATIONS
+    <a href="user_update.php?user_id={$user_id}" class="button-link">情報の更新</a>
+    <br>
+    <a href="user_delete.php?user_id={$user_id}" class="button-link">情報の削除</a>
+    <br>
+    OPERATIONS;
+}
+?>
+
+
+「check_password.php」
+<?php
+    /**
+     * 登録情報編集前に入力したパスワードを確認
+     */
+    require_once("common.php");
+
+    if ($_SERVER["REQUEST_METHOD"] === "POST") {
+        $user_id = $_POST["user_id"];
+        $password = $_POST["password"];
+
+        $member = $dbm->get_user($user_id);
+        
+        if ($member && $member["password"] === $password) {
+            // パスワードが一致した場合
+            header("Location: user_edit.php?user_id={$user_id}");
+            exit();
+        } else {
+            // パスワードが一致しなかった場合
+            header("Location: index.php?error=※正しいパスワードを入力してください");
+            exit();
+        }
+    } else {
+        header("Location: index.php");
+        exit();
+    }
+?>
+
+
+「common.php」
+<?php
+    /**
+     * 処理に必要な共通ファイル
+     */
+    require_once(__DIR__ . '/../common/html_functions.php');
+    require_once(__DIR__ . '/../common/dbmanager.php');
+    require_once(__DIR__ . '/../common/data_check.php');
+
+    // エラーの取得関数
+    function get_error() {
+        $error = "";
+        if (isset($_GET["error"])) {
+            $error = $_GET["error"];
+        }
+        return $error;
+    }
+
+    $dbm = new DBManager();
+?>
+
+「index.php」
+<?php 
+    /**
+     * トップ画面
+     */
+    require_once("common.php");
+    show_top();
+    if (isset($_GET["error"])) {
+        echo "<p style='color:red;'>{$_GET["error"]}</p>";
+    }
+    //  ユーザー一覧の表示
+    $user = $dbm->get_all_user();
+    if ($user != null) {
+        show_user_list($user); 
+    }
+    echo "<a href=\"user_input.php\">登録画面へ</a>";
+    show_bottom();
+?>
+
+「post_data.php」
+<?php
+/**
+ * データの挿入・更新・削除 
+ */
+require_once("common.php");
+
+if (isset($_POST["data"])) {
+    // POSTで送られたデータ取得
+    $name = isset($_POST["name"]) ? $_POST["name"] : "";
+    $user_id = isset($_POST["user_id"]) ? (int)$_POST["user_id"] : 0;
+    $password = isset($_POST["password"]) ? $_POST["password"] : "";
+    $password_confirm = isset($_POST["password_confirm"]) ? $_POST["password_confirm"] : "";
+    $old_user_id = isset($_POST["old_user_id"]) ? (int)$_POST["old_user_id"] : 0;
+
+    // データ挿入処理
+    if ($_POST["data"] == "create") {
+        if (!check_input($name, $user_id, $password, $password_confirm, $error)) {
+            header("Location: user_input.php?error={$error}");
+            exit();
+        }
+        if ($dbm->if_id_exists($user_id)) {
+            $error = "すでに使用されているidです";
+            header("Location: user_input.php?error={$error}");
+            exit();   
+        }
+        if (!$dbm->insert_user($name, $user_id, $password)) {
+            $error = "DBエラー";
+            header("Location: user_input.php?error={$error}");
+            exit();    
+        }
+        header("Location: index.php");
+        exit();
+        
+    // データ更新処理   
+    } else if ($_POST["data"] == "update") {
+        if (!check_input($name, $user_id, $password, $password_confirm, $error)) {
+            header("Location: user_update.php?error={$error}&id={$old_user_id}");
+            exit();  
+        }
+        if ($dbm->if_id_exists($user_id) && $user_id != $old_user_id) {
+            $error = "すでに使用されているidです";
+            header("Location: user_update.php?error={$error}&id={$old_user_id}");
+            exit();   
+        }
+        $dbm->update_user($name, $user_id, $password, $old_user_id);
+        header("Location: index.php");
+        exit();
+
+    // データ削除処理   
+    } else if ($_POST["data"] == "delete") {
+        if (!$dbm->delete_user($user_id)) {
+            $error = "DBエラー";
+            header("Location: user_delete.php?error={$error}&id={$user_id}");
+            exit();                
+        }
+        header("Location: index.php");
+        exit();       
+    } else {
+        header("Location: index.php");
+        exit();
+    }  
+}
+?>
+
+「user_delete.php」
+<?php
+    /**
+     * ユーザー情報削除画面 
+     */
+    require_once("common.php");
+
+    $user_id = isset($_GET["user_id"]) ? (int)$_GET["user_id"] : 0;
+    $member = $dbm->get_user($user_id); 
+    if ($member) {
+        show_top("情報削除");
+        show_delete($member);
+        show_bottom(true);
+    } else {
+        // ユーザーが見つからない場合の処理
+        header("Location: index.php?error=ユーザーが見つかりません");
+        exit();
+    }
+?>
+
+「user_edit.php」
+<?php
+    /**
+     * ユーザー情報の削除・更新の確認画面 
+     */
+    require_once("common.php");
+
+    //isset関数：指定した変数が設定されており、かつNULLでないかどうかを確認する
+    
+    #$user_id = isset($_POST["user_id"]) ? $_POST["user_id"] : (isset($_GET["user_id"]) ? $_GET["user_id"] : null);
+
+    $user_id = isset($_GET["user_id"]) ? $_GET["user_id"] : null;
+    if ($user_id === null) {
+        header("Location: index.php?error=パスワードが正しくありません");
+        exit();
+    }
+    $member = $dbm->get_user($user_id); 
+    if ($member) {
+        show_top("選択情報");
+        show_user($member);
+        show_operations($user_id);
+        show_bottom(true);
+    } else {
+        // ユーザーが見つからない場合の処理
+        header("Location: index.php?error=ユーザーが見つかりません");
+        exit();
+    }
+?>
+
+「user_input.php」
+<?php
+    /**
+     * ユーザー情報挿入画面 
+     */
+    require_once("common.php");
+
+    show_top("ユーザー情報の追加");
+    show_input();
+    show_bottom(true);
+?>
+
+「user_update.php」
+<?php
+    /**
+     * ユーザー情報の更新の確認画面 
+     */
+    require_once("common.php");
+
+    $old_user_id = isset($_GET["user_id"]) ? (int)$_GET["user_id"] : 0;
+    $member = $dbm->get_user($old_user_id);
+
+    if ($member) {
+        $name = $member["name"];
+        $user_id = $member["user_id"];
+        $password = $member["password"];
+    } else {
+        // ユーザーが見つからない場合の処理
+        header("Location: index.php?error=すでに使用されているidです。更新されませんでした。");
+        exit();
+    }
+
+    show_top("情報更新"); 
+    show_update($name, $user_id, $password, $old_user_id);
+    show_bottom(true);
+?>

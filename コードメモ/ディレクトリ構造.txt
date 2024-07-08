@@ -1,0 +1,77 @@
+C:\xampp\htdocs\卒研PHP\
+|-- index.php(メインのインデックスページ)
+|-- coordinate\
+|   |-- css\
+|   |   |-- style.css(スタイル設定)
+|   |-- php\
+|   |   |-- get_user_id.php(ユーザーIDを取得するスクリプト)
+|   |   |-- MYDB.php(データベース接続用のスクリプト)
+|   |   |-- save_coordinates.php(クリック座標を保存するスクリプト)
+|   |   |-- session_start.phpセッションを開始するスクリプト)
+|   |   |-- delete_latest_click.php(最新のクリック座標を削除し、そのクリック時間を返す)
+|   |   |-- reset_click_data.php()
+|   |   |-- update_click_count.php()
+|   |   |-- get_click_count.php()
+|   |   |-- get_latest_click.php()
+|   |   |-- save_comment.php()
+|   |   |-- update_comment.php()
+|   |   |-- delete_coordinate.php()
+|   |   |-- display_click_coordinates.php(click_coordinatesテーブルをHTML表形式で表示)
+|   |   |-- get_click_data.php
+|   |-- script\
+|   |   |-- app.js(YouTube IFrame APIの初期化とプレーヤーの設定)
+|   |   |-- script.js(ユーザーIDとビデオIDの取得，ボタンのイベントリスナー)
+|-- login\
+|   |-- login.php(ログインページ)
+|   |-- login_process.php
+|   |-- ログイン処理を行うスクリプト)
+|   |-- logout.php(ログアウト処理を行うスクリプト)
+|   |-- session.php(セッション管理スクリプト)
+|-- user_registration\
+|   |-- php\
+|   |   |-- common.php(共通の関数を定義)
+|   |   |-- check_password.php(パスワードをチェックするスクリプト)
+|   |   |-- index.php(
+|   |   |-- post_data.php(データを投稿するためのスクリプト)
+|   |   |-- user_delete.php(ユーザーを削除するスクリプト)
+|   |   |-- user_edit.php(ユーザー情報を編集するためのスクリプト)
+|   |   |-- user_input.php(ユーザー情報を入力するためのスクリプト)
+|   |   |-- user_update.php(ユーザー情報を更新するスクリプト)
+|   |-- common\
+|   |   |-- html_functions.php(HTML出力用の関数を定義)
+|   |   |-- dbmanager.php(データベース管理クラス)
+|   |   |-- data_check.php(データチェックを行うスクリプト)
+
+
+
+MariaDB [coordinates_db]> desc users;
++----------+--------------+------+-----+---------+-------+
+| Field    | Type         | Null | Key | Default | Extra |
++----------+--------------+------+-----+---------+-------+
+| user_id  | int(11)      | NO   | PRI | NULL    |       |
+| name     | varchar(255) | NO   |     | NULL    |       |
+| password | varchar(255) | NO   |     | NULL    |       |
++----------+--------------+------+-----+---------+-------+
+
+MariaDB [coordinates_db]> desc click_coordinates;
++--------------+---------------+------+-----+---------+----------------+
+| Field        | Type          | Null | Key | Default | Extra          |
++--------------+---------------+------+-----+---------+----------------+
+| id           | int(11)       | NO   | PRI | NULL    | auto_increment |
+| user_id      | int(11)       | NO   | MUL | NULL    |                |
+| x_coordinate | int(11)       | NO   |     | NULL    |                |
+| y_coordinate | int(11)       | NO   |     | NULL    |                |
+| click_time   | decimal(65,5) | YES  |     | NULL    |                |
+| video_id     | varchar(255)  | YES  |     | NULL    |                |
+| comment      | text          | YES  |     | NULL    |                |
++--------------+---------------+------+-----+---------+----------------+
+
+MariaDB [coordinates_db]> desc click_counts;
++-------------+--------------+------+-----+---------+----------------+
+| Field       | Type         | Null | Key | Default | Extra          |
++-------------+--------------+------+-----+---------+----------------+
+| id          | int(11)      | NO   | PRI | NULL    | auto_increment |
+| user_id     | int(11)      | YES  | MUL | NULL    |                |
+| video_id    | varchar(255) | YES  |     | NULL    |                |
+| click_count | int(11)      | YES  |     | 0       |                |
++-------------+--------------+------+-----+---------+----------------+
