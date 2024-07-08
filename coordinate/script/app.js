@@ -1,4 +1,4 @@
-// グローバル変数の定義ｆ
+// グローバル変数の定義ｆaaaaa
 let player;
 let isPlaying = false;
 let isCoordinateEnabled = false;
