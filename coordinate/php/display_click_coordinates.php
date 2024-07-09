@@ -11,7 +11,6 @@ try {
     exit();
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -19,7 +18,7 @@ try {
     <title>Click Coordinates</title>
     <style>
         table {
-            width: 800px;
+            width: 100%;
             border-collapse: collapse;
         }
         th, td {

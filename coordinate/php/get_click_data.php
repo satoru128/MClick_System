@@ -1,8 +1,9 @@
 <?php
+/**
+ * リプレイ機能：クリックデータの取得
+ */
 require 'MYDB.php';
-
 header('Content-Type: application/json');
-
 try {
     if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $data = json_decode(file_get_contents('php://input'), true);
@@ -11,7 +12,7 @@ try {
         }
         $video_id = $data['video_id'];
         
-        $conn = connect_db();
+        $conn = db_connect();
         
         if (!$conn) {
             throw new Exception("Database connection failed: " . mysqli_connect_error());
@@ -46,7 +47,6 @@ try {
         throw new Exception('Invalid request method');
     }
 } catch (Exception $e) {
-    error_log($e->getMessage()); // エラーメッセージをログに出力
     echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
 }
 ?>

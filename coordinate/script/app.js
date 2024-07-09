@@ -162,11 +162,18 @@ function initializeControls() {
             player.seekTo(0);
             replayBtn.textContent = "リプレイオン";
             replayBtn.classList.add('on');
-            fetchClickData();
+            fetchReplayData(videoId).then(clicks => {
+                if (clicks) {
+                    // リプレイデータを利用してクリックイベントを再生
+                    replayClicks(clicks);
+                } else {
+                    console.error('No replay data available');
+                }
+            });
         } else if (isReplayEnabled) {
             isReplayEnabled = false;
             player.pauseVideo();
-            clearCanvas(); // キャンバスをクリアする新しい関数
+            clearCanvas();
             replayBtn.classList.remove('on');
             replayBtn.textContent = "リプレイオフ";
         }
@@ -311,6 +318,66 @@ function initializeControls() {
     setInterval(updateDisplayTime, 1000);
 }
 
+// ページロード時にクリック座標データを取得して表示
+window.addEventListener('load', fetchClickCoordinates);
+
+// ページロード時にクリック座標データを取得してメイン画面に表示
+window.addEventListener('load', () => {
+    fetch('./coordinate/php/fetch_click_coordinates.php')
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                displayClickCoordinates(data.data);
+            } else {
+                console.error('Error fetching click coordinates:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching click coordinates:', error);
+        });
+});
+
+function displayClickCoordinates(coordinates) {
+    const container = document.getElementById('coordinate-data');
+    container.innerHTML = ''; // 以前の内容をクリア
+
+    const table = document.createElement('table');
+    table.style.width = '100%';
+    table.style.borderCollapse = 'collapse';
+
+    const headerRow = document.createElement('tr');
+    const headers = ['ID', 'X', 'Y', 'Time', 'Comment'];
+    
+    headers.forEach(headerText => {
+        const header = document.createElement('th');
+        header.textContent = headerText;
+        header.style.border = '1px solid #ddd';
+        header.style.padding = '5px';
+        header.style.textAlign = 'center';
+        headerRow.appendChild(header);
+    });
+    table.appendChild(headerRow);
+
+    coordinates.forEach(coord => {
+        const row = document.createElement('tr');
+        const cellData = [
+            coord.id,
+            coord.x_coordinate,
+            coord.y_coordinate,
+            parseFloat(coord.click_time).toFixed(3),
+            coord.comment
+        ];
+        cellData.forEach(text => {
+            const cell = document.createElement('td');
+            cell.textContent = text;
+            row.appendChild(cell);
+        });
+        table.appendChild(row);
+    });
+
+    container.appendChild(table);
+}
+
 function onPlayerStateChange(event) {
     if (event.data === YT.PlayerState.PLAYING) {
         isPlaying = true;
@@ -326,6 +393,8 @@ function handleCanvasClick(event, userId, videoId) {
     const y = event.clientY - rect.top;
     const clickTime = player.getCurrentTime();
 
+    console.log('Saving coordinates...', { userId, x, y, clickTime, videoId }); // デバッグ用
+
     fetch('./coordinate/php/save_coordinates.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -339,10 +408,11 @@ function handleCanvasClick(event, userId, videoId) {
     })
     .then(response => response.json())
     .then(result => {
+        console.log('Save result:', result); // デバッグ用
         if (result.status === "success") {
             console.log('Coordinates saved successfully');
             updateClickCount(userId, videoId);
-            addCoordinateData(clickCount, clickTime, x, y); // 新しい行を追加
+            fetchClickCoordinates(); // 座標が保存された後に表を更新
         } else {
             console.error('Error:', result.error);
         }
@@ -350,6 +420,23 @@ function handleCanvasClick(event, userId, videoId) {
     .catch(error => {
         console.error('Error:', error);
     });
+}
+
+function fetchClickCoordinates() {
+    console.log('Fetching click coordinates...'); // デバッグ用
+    fetch('./coordinate/php/fetch_click_coordinates.php')
+        .then(response => response.json())
+        .then(data => {
+            console.log('Data fetched:', data); // デバッグ用
+            if (data.status === 'success') {
+                displayClickCoordinates(data.data);
+            } else {
+                console.error('Error fetching click coordinates:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching click coordinates:', error);
+        });
 }
 
 function handleSceneClick(userId, videoId) {
@@ -601,79 +688,6 @@ function drawRedCircle(x, y) {
     ctx.fill();
 }
 
-function fetchClickData() {
-    const videoId = document.getElementById('player').getAttribute('data-video-id');
-    console.log('Fetching click data for video ID:', videoId); // デバッグ用ログ
-
-    fetch('./coordinate/php/get_click_data.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ video_id: videoId })
-    })
-    .then(response => {
-        console.log('Response status:', response.status); // デバッグ用ログ
-        return response.json();
-    })
-    .then(data => {
-        console.log('Received click data:', data); // デバッグ用ログ
-        if (data.status === 'success') {
-            player.seekTo(0);
-            if (isReplayEnabled) {
-                replayClickData(data.clicks);
-            }
-            displayClickData(data.clicks);
-        } else {
-            console.error('Error fetching click data:', data.message);
-        }
-    })
-    .catch(error => console.error('Error:', error));
-}
-
-function displayClickData(clicks) {
-    const coordinateData = document.getElementById('coordinate-data');
-    coordinateData.innerHTML = ''; // 既存のデータをクリア
-    clicks.forEach((click, index) => {
-        addCoordinateData(index + 1, click.click_time, click.x, click.y);
-    });
-}
-
-function addCoordinateData(number, time, x, y) {
-    const coordinateData = document.getElementById('coordinate-data');
-    const item = document.createElement('div');
-    item.className = 'coordinate-item';
-    item.textContent = `${number}. ${time.toFixed(2)}秒 - (${x}, ${y})`;
-    coordinateData.appendChild(item);
-
-    // 自動スクロール
-    coordinateData.scrollTop = coordinateData.scrollHeight;
-}
-
-function replayClickData(clicks) {
-    const canvas = document.getElementById('myCanvas');
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height); // キャンバスをクリア
-
-    clicks.forEach((click, index) => {
-        setTimeout(() => {
-            drawCircleWithNumber(ctx, click.x, click.y, index + 1);
-        }, click.click_time * 1000);
-    });
-}
-
-function drawCircleWithNumber(ctx, x, y, number) {
-    ctx.beginPath();
-    ctx.arc(x, y, 15, 0, 2 * Math.PI);
-    ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = 'white';
-    ctx.font = '12px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(number.toString(), x, y);
-}
-
 function resetClickData(userId, videoId) {
     fetch('./coordinate/php/reset_click_data.php', {
         method: 'POST',
@@ -714,6 +728,97 @@ function updateClickCount(userId, videoId) {
     .catch(error => {
         console.error('Error:', error);
     });
+}
+
+// リプレイデータを取得する関数
+function fetchReplayData(videoId) {
+    return fetch('./coordinate/php/get_click_data.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ video_id: videoId })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Replay data:', data); // デバッグ用にデータをログに出力
+        if (data.status === 'success') {
+            return data.clicks;
+        } else {
+            throw new Error(data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error fetching replay data:', error);
+        alert('リプレイデータの取得中にエラーが発生しました。');
+    });
+}
+
+// クリックイベントを再生する関数
+function replayClicks(clicks) {
+    if (!clicks || !Array.isArray(clicks)) {
+        console.error('Invalid clicks data:', clicks);
+        return;
+    }
+
+    clicks.forEach(click => {
+        setTimeout(() => {
+            drawRedCircleWithFade(click.x, click.y);
+        }, click.click_time * 1000);
+    });
+}
+
+function displayClicks(clicks) {
+    const canvas = document.getElementById('myCanvas');
+    const ctx = canvas.getContext('2d');
+    clicks.forEach(click => {
+        ctx.beginPath();
+        ctx.arc(click.x, click.y, 5, 0, 2 * Math.PI);
+        ctx.fillStyle = 'red';
+        ctx.fill();
+    });
+}
+
+function addCoordinateData(number, time, x, y) {
+    const coordinateData = document.getElementById('coordinate-data');
+    const item = document.createElement('div');
+    item.className = 'coordinate-item';
+    item.textContent = `${number}. ${time.toFixed(2)}秒 - (${x}, ${y})`;
+    coordinateData.appendChild(item);
+
+    // 自動スクロール
+    coordinateData.scrollTop = coordinateData.scrollHeight;
+}
+
+function replayClickData(clicks) {
+    const canvas = document.getElementById('myCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height); // キャンバスをクリア
+
+    player.playVideo(); // 動画を再生開始
+
+    clicks.forEach((click, index) => {
+        setTimeout(() => {
+            drawCircleWithNumber(ctx, click.x, click.y, index + 1);
+        }, click.click_time * 1000);
+    });
+}
+
+function drawCircleWithNumber(ctx, x, y, number) {
+    ctx.beginPath();
+    ctx.arc(x, y, 15, 0, 2 * Math.PI);
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = 'white';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(number.toString(), x, y);
 }
 
 function clearCanvas() {
