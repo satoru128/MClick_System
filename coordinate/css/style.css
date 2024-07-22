@@ -20,6 +20,7 @@
 }
 
 #myCanvas {
+    position: absolute;
     z-index: 10;  /* より大きな値に設定 */
     pointer-events: auto;  /* キャンバスを通してクリック可能にする */
     border: 1px solid black;

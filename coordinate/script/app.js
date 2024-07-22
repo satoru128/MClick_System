@@ -812,19 +812,21 @@ function fetchReplayData(videoId) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ video_id: videoId, user_id: userId })
         })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.json();
-        })
+        .then(response => response.json())
         .then(data => {
-            console.log('Replay data:', data); 
+            console.log('Raw replay data:', data); // デバッグ用
             if (data.status === 'success') {
                 if (data.clicks.length === 0) {
                     console.log('No clicks found for this video and user');
+                    return [];
                 }
-                return data.clicks;
+                // 座標データをそのまま使用（正規化しない）
+                return data.clicks.map(click => ({
+                    ...click,
+                    x: parseFloat(click.x),
+                    y: parseFloat(click.y),
+                    click_time: parseFloat(click.click_time)
+                }));
             } else {
                 throw new Error(data.message);
             }
@@ -852,9 +854,9 @@ function replayClicks(clicks) {
 
     clicks.forEach((click, index) => {
         setTimeout(() => {
-            console.log(`Drawing click ${index + 1} at ${click.click_time}`);
-            drawCircleWithNumberAndFade(ctx, parseFloat(click.x), parseFloat(click.y), click.id);
-        }, parseFloat(click.click_time) * 1000);
+            console.log(`Drawing click ${index + 1} at ${click.click_time}, coordinates: (${click.x}, ${click.y})`);
+            drawCircleWithNumberAndFade(ctx, click.x, click.y, click.id);
+        }, click.click_time * 1000);
     });
 }
 
@@ -898,12 +900,14 @@ function drawCircleWithNumberAndFade(ctx, x, y, id) {
     const canvas = ctx.canvas;
     const radius = 10;
     
-    // 保存された比率から実際の描画位置を計算
-    const drawX = x * canvas.width;
-    const drawY = y * canvas.height;
+    // 座標をそのまま使用（正規化しない）
+    const drawX = x;
+    const drawY = y;
+
+    console.log(`Drawing circle at (${drawX}, ${drawY}) with ID ${id}`); // デバッグ用
 
     function draw(alpha) {
-        ctx.clearRect(drawX - radius - 1, drawY - radius - 1, (radius + 1) * 2, (radius + 1) * 2);
+        ctx.save();
         ctx.globalAlpha = alpha;
         
         ctx.beginPath();
@@ -916,6 +920,8 @@ function drawCircleWithNumberAndFade(ctx, x, y, id) {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(id.toString(), drawX, drawY);
+        
+        ctx.restore();
     }
 
     draw(1.0);
@@ -925,7 +931,6 @@ function drawCircleWithNumberAndFade(ctx, x, y, id) {
         alpha -= 0.025;
         if (alpha <= 0) {
             clearInterval(fadeInterval);
-            ctx.clearRect(drawX - radius - 1, drawY - radius - 1, (radius + 1) * 2, (radius + 1) * 2);
         } else {
             draw(alpha);
         }
