@@ -31,7 +31,7 @@
             <canvas id="myCanvas"></canvas>
         </div>
         <div id="coordinate-data-container">
-            <h3>クリック座標データ</h3>
+            <h2>クリック座標データ</h2>
             <div id="coordinate-data">
                 <!-- ここに座標データが動的に追加されます -->
             </div>

@@ -28,7 +28,7 @@
     <div id="video-and-data-container">
         <div id="video-container">
             <div id="player" data-video-id="<?php echo $video_id; ?>"></div>
-            <canvas id="myCanvas"></canvas>
+            <canvas id="myCanvas" width="640" height="360"></canvas>
         </div>
         <div id="coordinate-data-container">
             <h2>クリック座標データ</h2>
@@ -57,6 +57,7 @@
                     <button id="commentCancel">キャンセル</button>
                 </div>
             </div>
+            <button id="exportDataBtn">データをエクスポート</button>
         </div>
 
         <div id="reset-container">
@@ -89,6 +90,7 @@
     <div id="logout-controls">
         <a href="./login/logout.php">ログアウト</a>
     </div>
+    <button id="toggleHeatmapBtn">ヒートマップ表示/非表示</button>
     <div id="contextMenu" class="context-menu">
         <button id="recordScene">そのシーンを記録</button>
         <button id="recordComment">コメント付き座標の記録</button>

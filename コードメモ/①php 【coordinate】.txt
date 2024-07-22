@@ -120,7 +120,6 @@ try {
     exit();
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -128,7 +127,7 @@ try {
     <title>Click Coordinates</title>
     <style>
         table {
-            width: 800px;
+            width: 100%;
             border-collapse: collapse;
         }
         th, td {
@@ -169,15 +168,20 @@ try {
 </html>
 
 
+
 「fetch_click_coordinates.php」
 <?php
+/**
+ * メイン画面：クリック座標データの描画
+ */
 require_once("MYDB.php");
 $pdo = db_connect();
 
 header('Content-Type: application/json');
 
 try {
-    $stmt = $pdo->prepare("SELECT * FROM click_coordinates");
+    // Time順にデータを取得
+    $stmt = $pdo->prepare("SELECT * FROM click_coordinates ORDER BY click_time ASC");
     $stmt->execute();
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
     echo json_encode(['status' => 'success', 'data' => $results]);
@@ -224,55 +228,34 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
 「get_click_data.php」
 <?php
+/**
+ * リプレイ機能：クリックデータの取得
+ */
 require 'MYDB.php';
-
 header('Content-Type: application/json');
+ini_set('display_errors', 0);
+error_reporting(E_ALL);
+
+require_once("MYDB.php");
 
 try {
-    if ($_SERVER["REQUEST_METHOD"] == "POST") {
-        $data = json_decode(file_get_contents('php://input'), true);
-        if (!$data || !isset($data['video_id'])) {
-            throw new Exception("Invalid input");
-        }
-        $video_id = $data['video_id'];
-        
-        $conn = connect_db();
-        
-        if (!$conn) {
-            throw new Exception("Database connection failed: " . mysqli_connect_error());
-        }
-        
-        $sql = "SELECT id, x_coordinate AS x, y_coordinate AS y, click_time FROM click_coordinates WHERE video_id = ?";
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) {
-            throw new Exception("Prepare statement failed: " . $conn->error);
-        }
-        
-        $stmt->bind_param("s", $video_id);
-        if (!$stmt->execute()) {
-            throw new Exception("Execute failed: " . $stmt->error);
-        }
-        
-        $result = $stmt->get_result();
-        if (!$result) {
-            throw new Exception("Getting result set failed: " . $stmt->error);
-        }
-        
-        $clicks = array();
-        while ($row = $result->fetch_assoc()) {
-            $clicks[] = $row;
-        }
-        
-        echo json_encode(['status' => 'success', 'clicks' => $clicks]);
-        
-        $stmt->close();
-        $conn->close();
-    } else {
-        throw new Exception('Invalid request method');
-    }
+    $pdo = db_connect();
+    
+    $data = json_decode(file_get_contents('php://input'), true);
+    $video_id = $data['video_id'];
+
+    $stmt = $pdo->prepare("SELECT id, x_coordinate AS x, y_coordinate AS y, click_time FROM click_coordinates WHERE video_id = :video_id ORDER BY click_time ASC");
+    $stmt->bindParam(':video_id', $video_id, PDO::PARAM_STR);
+    $stmt->execute();
+    
+    $clicks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    echo json_encode(['status' => 'success', 'clicks' => $clicks]);
 } catch (Exception $e) {
-    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+    error_log($e->getMessage());
+    echo json_encode(['status' => 'error', 'message' => 'An error occurred while fetching data.']);
 }
+?>
 
 
 「get_latest_click.php」

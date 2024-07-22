@@ -11,6 +11,11 @@ let isRightClickComment = false;
 let pendingCircle = null;
 let isCircleVisible = false;
 let isReplayEnabled = false;
+let replayTimeouts = [];
+let currentClicks = [];
+let isReplayPaused = false;
+let heatmapCanvas;
+let isHeatmapVisible = false;
 
 // YouTube IFrame API の初期化
 function onYouTubeIframeAPIReady() {
@@ -60,6 +65,7 @@ function onPlayerReady(event) {
 }
 
 function initializeControls() {
+    const ctx = initializeCanvas();
     const playBtn = document.getElementById('playBtn');
     const pauseBtn = document.getElementById('pauseBtn');
     const stopBtn = document.getElementById('stopBtn');
@@ -159,15 +165,17 @@ function initializeControls() {
         if (!isReplayEnabled && !isCoordinateEnabled) {
             isReplayEnabled = true;
             player.pauseVideo();
-            player.seekTo(0);
             replayBtn.textContent = "リプレイオン";
             replayBtn.classList.add('on');
             fetchReplayData(videoId).then(clicks => {
-                if (clicks) {
-                    // リプレイデータを利用してクリックイベントを再生
+                if (clicks && clicks.length > 0) {
                     replayClicks(clicks);
                 } else {
                     console.error('No replay data available');
+                    alert('リプレイデータがありません。');
+                    isReplayEnabled = false;
+                    replayBtn.classList.remove('on');
+                    replayBtn.textContent = "リプレイオフ";
                 }
             });
         } else if (isReplayEnabled) {
@@ -337,6 +345,21 @@ window.addEventListener('load', () => {
         });
 });
 
+function initializeCanvas() {
+    const canvas = document.getElementById('myCanvas');
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    canvas.style.width = `${rect.width}px`;
+    canvas.style.height = `${rect.height}px`;
+
+    ctx.scale(dpr, dpr);
+    return ctx;
+}
+
 function displayClickCoordinates(coordinates) {
     const container = document.getElementById('coordinate-data');
     container.innerHTML = ''; // 以前の内容をクリア
@@ -381,9 +404,28 @@ function displayClickCoordinates(coordinates) {
 function onPlayerStateChange(event) {
     if (event.data === YT.PlayerState.PLAYING) {
         isPlaying = true;
+        if (isReplayEnabled && isReplayPaused) {
+            resumeReplay();
+        }
+    } else if (event.data === YT.PlayerState.PAUSED) {
+        isPlaying = false;
+        if (isReplayEnabled) {
+            pauseReplay();
+        }
     } else {
         isPlaying = false;
     }
+}
+
+function pauseReplay() {
+    isReplayPaused = true;
+    replayTimeouts.forEach(clearTimeout);
+}
+
+function resumeReplay() {
+    isReplayPaused = false;
+    const currentTime = player.getCurrentTime();
+    replayClicks(currentClicks.filter(click => parseFloat(click.click_time) > currentTime));
 }
 
 function handleCanvasClick(event, userId, videoId) {
@@ -393,26 +435,28 @@ function handleCanvasClick(event, userId, videoId) {
     const y = event.clientY - rect.top;
     const clickTime = player.getCurrentTime();
 
-    console.log('Saving coordinates...', { userId, x, y, clickTime, videoId }); // デバッグ用
+    // 保存する座標はキャンバスの実際のサイズに対する比率で保存
+    const saveX = x / canvas.clientWidth;
+    const saveY = y / canvas.clientHeight;
 
+    // サーバーにデータを送信
     fetch('./coordinate/php/save_coordinates.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             user_id: userId,
-            x: x,
-            y: y,
+            x: saveX,
+            y: saveY,
             click_time: clickTime,
             video_id: videoId
         })
     })
     .then(response => response.json())
     .then(result => {
-        console.log('Save result:', result); // デバッグ用
         if (result.status === "success") {
             console.log('Coordinates saved successfully');
             updateClickCount(userId, videoId);
-            fetchClickCoordinates(); // 座標が保存された後に表を更新
+            updateCoordinateTable(); 
         } else {
             console.error('Error:', result.error);
         }
@@ -420,6 +464,35 @@ function handleCanvasClick(event, userId, videoId) {
     .catch(error => {
         console.error('Error:', error);
     });
+}
+
+function updateCoordinateTable() {
+    fetch('./coordinate/php/fetch_click_coordinates.php')
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const container = document.getElementById('coordinate-data');
+                const table = container.querySelector('table') || document.createElement('table');
+                const newRow = document.createElement('tr');
+                const latestCoord = data.data[data.data.length - 1];
+                
+                [latestCoord.id, latestCoord.x_coordinate, latestCoord.y_coordinate, parseFloat(latestCoord.click_time).toFixed(3), latestCoord.comment].forEach(text => {
+                    const cell = document.createElement('td');
+                    cell.textContent = text;
+                    newRow.appendChild(cell);
+                });
+                
+                table.appendChild(newRow);
+                if (!container.contains(table)) {
+                    container.appendChild(table);
+                }
+            } else {
+                console.error('Error fetching click coordinates:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
 }
 
 function fetchClickCoordinates() {
@@ -732,28 +805,34 @@ function updateClickCount(userId, videoId) {
 
 // リプレイデータを取得する関数
 function fetchReplayData(videoId) {
-    return fetch('./coordinate/php/get_click_data.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ video_id: videoId })
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-        return response.json();
-    })
-    .then(data => {
-        console.log('Replay data:', data); // デバッグ用にデータをログに出力
-        if (data.status === 'success') {
-            return data.clicks;
-        } else {
-            throw new Error(data.message);
-        }
-    })
-    .catch(error => {
+    return getUserId().then(userId => {
+        console.log('Fetching replay data for video:', videoId, 'and user:', userId);
+        return fetch('./coordinate/php/get_click_data.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ video_id: videoId, user_id: userId })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Replay data:', data); 
+            if (data.status === 'success') {
+                if (data.clicks.length === 0) {
+                    console.log('No clicks found for this video and user');
+                }
+                return data.clicks;
+            } else {
+                throw new Error(data.message);
+            }
+        });
+    }).catch(error => {
         console.error('Error fetching replay data:', error);
-        alert('リプレイデータの取得中にエラーが発生しました。');
+        alert('リプレイデータの取得中にエラーが発生しました。エラー: ' + error.message);
+        return null;
     });
 }
 
@@ -764,10 +843,18 @@ function replayClicks(clicks) {
         return;
     }
 
-    clicks.forEach(click => {
+    const canvas = document.getElementById('myCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    player.seekTo(0);
+    player.playVideo();
+
+    clicks.forEach((click, index) => {
         setTimeout(() => {
-            drawRedCircleWithFade(click.x, click.y);
-        }, click.click_time * 1000);
+            console.log(`Drawing click ${index + 1} at ${click.click_time}`);
+            drawCircleWithNumberAndFade(ctx, parseFloat(click.x), parseFloat(click.y), click.id);
+        }, parseFloat(click.click_time) * 1000);
     });
 }
 
@@ -807,18 +894,42 @@ function replayClickData(clicks) {
     });
 }
 
-function drawCircleWithNumber(ctx, x, y, number) {
-    ctx.beginPath();
-    ctx.arc(x, y, 15, 0, 2 * Math.PI);
-    ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
-    ctx.fill();
-    ctx.stroke();
+function drawCircleWithNumberAndFade(ctx, x, y, id) {
+    const canvas = ctx.canvas;
+    const radius = 10;
+    
+    // 保存された比率から実際の描画位置を計算
+    const drawX = x * canvas.width;
+    const drawY = y * canvas.height;
 
-    ctx.fillStyle = 'white';
-    ctx.font = '12px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(number.toString(), x, y);
+    function draw(alpha) {
+        ctx.clearRect(drawX - radius - 1, drawY - radius - 1, (radius + 1) * 2, (radius + 1) * 2);
+        ctx.globalAlpha = alpha;
+        
+        ctx.beginPath();
+        ctx.arc(drawX, drawY, radius, 0, 2 * Math.PI, false);
+        ctx.fillStyle = 'red';
+        ctx.fill();
+
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(id.toString(), drawX, drawY);
+    }
+
+    draw(1.0);
+
+    let alpha = 1.0;
+    const fadeInterval = setInterval(() => {
+        alpha -= 0.025;
+        if (alpha <= 0) {
+            clearInterval(fadeInterval);
+            ctx.clearRect(drawX - radius - 1, drawY - radius - 1, (radius + 1) * 2, (radius + 1) * 2);
+        } else {
+            draw(alpha);
+        }
+    }, 50);
 }
 
 function clearCanvas() {
@@ -826,3 +937,110 @@ function clearCanvas() {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
+
+//データのエクスポート
+document.getElementById('exportDataBtn').addEventListener('click', exportData);
+function exportData() {
+    fetch('./coordinate/php/fetch_click_coordinates.php')
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // BOMを追加してUTF-8で正しく開けるようにする
+                const BOM = "\uFEFF";
+                const csvContent = BOM + "ID\tX\tY\tTime\tComment\n"
+                    + data.data.map(e => `${e.id}\t${e.x_coordinate}\t${e.y_coordinate}\t${e.click_time}\t${e.comment}`).join("\n");
+
+                const blob = new Blob([csvContent], { type: 'text/tab-separated-values;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.setAttribute("href", url);
+                link.setAttribute("download", "click_data.tsv");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            } else {
+                console.error('Error fetching click coordinates:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+}
+
+//ヒートマップ
+document.getElementById('toggleHeatmapBtn').addEventListener('click', toggleHeatmap);
+window.addEventListener('load', initHeatmap);
+function initHeatmap() {
+    heatmapCanvas = document.createElement('canvas');
+    heatmapCanvas.width = 640;
+    heatmapCanvas.height = 360;
+    heatmapCanvas.style.position = 'absolute';
+    heatmapCanvas.style.top = '0';
+    heatmapCanvas.style.left = '0';
+    heatmapCanvas.style.pointerEvents = 'none';
+    heatmapCanvas.style.display = 'none';
+    document.getElementById('video-container').appendChild(heatmapCanvas);
+    console.log('Heatmap canvas created:', heatmapCanvas);
+}
+
+function toggleHeatmap() {
+    isHeatmapVisible = !isHeatmapVisible;
+    heatmapCanvas.style.display = isHeatmapVisible ? 'block' : 'none';
+    console.log('Heatmap visibility:', isHeatmapVisible);
+    if (isHeatmapVisible) {
+        console.log('Drawing heatmap');
+        drawHeatmap();
+    } else {
+        console.log('Hiding heatmap');
+    }
+}
+
+function drawHeatmap() {
+    console.log('drawHeatmap called');
+    const ctx = heatmapCanvas.getContext('2d');
+    ctx.clearRect(0, 0, heatmapCanvas.width, heatmapCanvas.height);
+
+    fetch('./coordinate/php/fetch_click_coordinates.php')
+        .then(response => response.json())
+        .then(data => {
+            console.log('Fetched heatmap data:', data);
+            if (data.status === 'success' && data.data.length > 0) {
+                const heatmapData = createHeatmapData(data.data);
+                console.log('Created heatmap data:', heatmapData);
+                drawHeatmapPoints(ctx, heatmapData);
+            } else {
+                console.log('No data available for heatmap');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching data for heatmap:', error);
+        });
+}
+
+function drawHeatmapPoints(ctx, data) {
+    console.log('Drawing heatmap points:', data);
+    data.forEach(point => {
+        const gradient = ctx.createRadialGradient(point.x, point.y, 0, point.x, point.y, 30);
+        gradient.addColorStop(0, 'rgba(255, 0, 0, 0.5)');
+        gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
+
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 30, 0, 2 * Math.PI);
+        ctx.fillStyle = gradient;
+        ctx.fill();
+    });
+}
+
+function createHeatmapData(clicks) {
+    return clicks.map(click => ({
+        x: parseFloat(click.x_coordinate) * heatmapCanvas.width,
+        y: parseFloat(click.y_coordinate) * heatmapCanvas.height,
+        value: 1
+    }));
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCanvas();
+    initHeatmap();
+});

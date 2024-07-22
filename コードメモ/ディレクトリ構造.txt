@@ -1,4 +1,4 @@
-C:\xampp\htdocs\卒研PHP\
+C:\xampp\htdocs\MClick_System\
 |-- index.php(メインのインデックスページ)
 |-- coordinate\
 |   |-- css\
@@ -23,8 +23,7 @@ C:\xampp\htdocs\卒研PHP\
 |   |   |-- script.js(ユーザーIDとビデオIDの取得，ボタンのイベントリスナー)
 |-- login\
 |   |-- login.php(ログインページ)
-|   |-- login_process.php
-|   |-- ログイン処理を行うスクリプト)
+|   |-- login_process.php(ログイン処理を行うスクリプト)
 |   |-- logout.php(ログアウト処理を行うスクリプト)
 |   |-- session.php(セッション管理スクリプト)
 |-- user_registration\
