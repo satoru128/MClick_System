@@ -1,4 +1,5 @@
 // グローバル変数の定義
+let ctx;
 let player;
 let isPlaying = false;
 let isCoordinateEnabled = false;
@@ -70,7 +71,7 @@ function onPlayerReady(event) {
 }
 
 function initializeControls() {
-    const ctx = initializeCanvas();
+    initializeCanvas();
     const playBtn = document.getElementById('playBtn');
     const pauseBtn = document.getElementById('pauseBtn');
     const stopBtn = document.getElementById('stopBtn');
@@ -102,18 +103,28 @@ function initializeControls() {
         player.playVideo();
         isPlaying = true;
         window.postMessage('play', '*');
+        if (isReplayEnabled && isReplayPaused) {
+            resumeReplay();
+        }
     });
 
     pauseBtn.addEventListener('click', () => {
         player.pauseVideo();
         isPlaying = false;
         window.postMessage('pause', '*');
+        if (isReplayEnabled && !isReplayPaused) {
+            pauseReplay();
+        }
     });
 
     stopBtn.addEventListener('click', () => {
         player.stopVideo();
         isPlaying = false;
         window.postMessage('stop', '*');
+        if (isReplayEnabled) {
+            clearCanvas();
+            replayClicks(currentClicks, 0);
+        }
     });
 
     muteBtn.addEventListener('click', () => {
@@ -131,6 +142,11 @@ function initializeControls() {
     rewindBtn.addEventListener('click', () => {
         const currentTime = player.getCurrentTime();
         player.seekTo(Math.max(currentTime - 10, 0), true);
+        if (isReplayEnabled) {
+            const newTime = Math.max(currentTime - 10, 0);
+            clearCanvas();
+            replayClicks(currentClicks, newTime);
+        }
     });
 
     skipBtn.addEventListener('click', () => {
@@ -352,7 +368,7 @@ window.addEventListener('load', () => {
 
 function initializeCanvas() {
     const canvas = document.getElementById('myCanvas');
-    const ctx = canvas.getContext('2d');
+    ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
 
@@ -428,6 +444,11 @@ function pauseReplay() {
     player.pauseVideo();
     replayTimeouts.forEach(clearTimeout);
     replayTimeouts = [];
+    activeFadeIntervals.forEach(interval => {
+        clearInterval(interval);
+        pausedFadeIntervals.push(interval);
+    });
+    activeFadeIntervals = [];
 }
 
 function resumeReplay() {
@@ -442,6 +463,11 @@ function resumeReplay() {
     const remainingClicks = currentClicks.filter(click => parseFloat(click.click_time) > currentTime);
     
     replayClicks(remainingClicks, currentTime);
+
+    pausedFadeIntervals.forEach(interval => {
+        activeFadeIntervals.push(interval);
+    });
+    pausedFadeIntervals = [];
 }
 
 function handleCanvasClick(event, userId, videoId) {
@@ -613,6 +639,7 @@ function saveComment(comment, isUpdating) {
                     .then(result => {
                         if (result.status === 'success') {
                             console.log('Updating comment successful');
+                            updateCoordinateTable();
                         } else {
                             console.error('Failed to update comment:', result.error);
                         }
@@ -627,8 +654,9 @@ function saveComment(comment, isUpdating) {
                     .then(response => response.json())
                     .then(result => {
                         if (result.status === 'success') {
-                            console.log('Saving comment successful, deleting original coordinate:', data.id);
+                            console.log('Saving comment successful');
                             deleteOriginalCoordinate(data.id);
+                            updateCoordinateTable();
                         } else {
                             console.error('Failed to save comment:', result.error);
                         }
@@ -678,7 +706,10 @@ function saveRightClickComment(comment) {
         })
         .then(response => response.json())
         .then(result => {
-            if (result.status !== 'success') {
+            if (result.status === 'success') {
+                console.log('Saving right-click comment successful');
+                updateCoordinateTable();
+            } else {
                 console.error('Failed to save right-click comment:', result.error);
             }
         })
@@ -867,14 +898,11 @@ function setReplaySpeed(speed) {
 
 // クリックイベントを再生する関数
 function replayClicks(clicks, startTime = 0, endTime = Infinity) {
-    if (!clicks || !Array.isArray(clicks)) {
-        console.error('Invalid clicks data:', clicks);
-        return;
-    }
-
-    const canvas = document.getElementById('myCanvas');
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    clearCanvas();
+    replayTimeouts.forEach(clearTimeout);
+    replayTimeouts = [];
+    activeFadeIntervals.forEach(clearInterval);
+    activeFadeIntervals = [];
 
     player.seekTo(startTime);
     player.playVideo();
@@ -885,10 +913,11 @@ function replayClicks(clicks, startTime = 0, endTime = Infinity) {
         click.click_time >= startTime && click.click_time <= endTime
     );
 
+    currentClicks = filteredClicks;
+    
     filteredClicks.forEach((click, index) => {
         const timeout = setTimeout(() => {
             if (!isReplayPaused) {
-                console.log(`Drawing click ${index + 1} at ${click.click_time}, coordinates: (${click.x}, ${click.y})`);
                 drawCircleWithNumberAndFade(ctx, click.x, click.y, click.id, click);
             }
         }, (click.click_time - startTime) * 1000 / replaySpeed);

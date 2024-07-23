@@ -6,7 +6,7 @@
 
     //isset関数：指定した変数が設定されており、かつNULLでないかどうかを確認する
     
-    #$user_id = isset($_POST["user_id"]) ? $_POST["user_id"] : (isset($_GET["user_id"]) ? $_GET["user_id"] : null);
+    $user_id = isset($_POST["user_id"]) ? $_POST["user_id"] : (isset($_GET["user_id"]) ? $_GET["user_id"] : null);
 
     $user_id = isset($_GET["user_id"]) ? $_GET["user_id"] : null;
     if ($user_id === null) {
