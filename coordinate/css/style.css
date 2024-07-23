@@ -135,6 +135,11 @@
     opacity: 0.8;
 }
 
+/*スピードコントロールボタン*/
+#replay-controls {
+    margin-top: 20px;
+}
+
 /*コメントボタン*/
 #comment-section {
     margin-top: 20px;

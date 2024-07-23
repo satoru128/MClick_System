@@ -59,6 +59,14 @@
             </div>
             <button id="exportDataBtn">データをエクスポート</button>
         </div>
+        
+        <div id="replay-controls">
+            <input type="range" id="speedControl" min="0.5" max="2" step="0.1" value="1">
+            <span id="speedValue">1x</span>
+            <input type="number" id="startTime" placeholder="開始時間">
+            <input type="number" id="endTime" placeholder="終了時間">
+            <button id="applyReplaySettings">適用</button>
+        </div>
 
         <div id="reset-container">
             <span>クリック回数: <span id="clickCount">0</span></span>

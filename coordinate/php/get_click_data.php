@@ -18,7 +18,7 @@ try {
     $video_id = $data['video_id'];
     $user_id = $data['user_id'];
 
-    $stmt = $pdo->prepare("SELECT id, x_coordinate AS x, y_coordinate AS y, click_time FROM click_coordinates WHERE video_id = :video_id AND user_id = :user_id ORDER BY click_time ASC");
+    $stmt = $pdo->prepare("SELECT id, x_coordinate AS x, y_coordinate AS y, click_time, comment FROM click_coordinates WHERE video_id = :video_id AND user_id = :user_id ORDER BY click_time ASC");
     $stmt->bindParam(':video_id', $video_id, PDO::PARAM_STR);
     $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
     $stmt->execute();

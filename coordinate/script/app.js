@@ -16,6 +16,11 @@ let currentClicks = [];
 let isReplayPaused = false;
 let heatmapCanvas;
 let isHeatmapVisible = false;
+let replaySpeed = 1;
+let pausedFadeIntervals = [];
+let replayStartTime = 0;
+let replayPauseTime = 0;
+let activeFadeIntervals = [];
 
 // YouTube IFrame API の初期化
 function onYouTubeIframeAPIReady() {
@@ -419,13 +424,24 @@ function onPlayerStateChange(event) {
 
 function pauseReplay() {
     isReplayPaused = true;
+    replayPauseTime = Date.now();
+    player.pauseVideo();
     replayTimeouts.forEach(clearTimeout);
+    replayTimeouts = [];
 }
 
 function resumeReplay() {
+    if (!isReplayPaused) return;
+
     isReplayPaused = false;
+    const pauseDuration = (Date.now() - replayPauseTime) / 1000;
+    replayStartTime += pauseDuration * 1000;
+    player.playVideo();
+
     const currentTime = player.getCurrentTime();
-    replayClicks(currentClicks.filter(click => parseFloat(click.click_time) > currentTime));
+    const remainingClicks = currentClicks.filter(click => parseFloat(click.click_time) > currentTime);
+    
+    replayClicks(remainingClicks, currentTime);
 }
 
 function handleCanvasClick(event, userId, videoId) {
@@ -820,13 +836,20 @@ function fetchReplayData(videoId) {
                     console.log('No clicks found for this video and user');
                     return [];
                 }
-                // 座標データをそのまま使用（正規化しない）
-                return data.clicks.map(click => ({
-                    ...click,
-                    x: parseFloat(click.x),
-                    y: parseFloat(click.y),
-                    click_time: parseFloat(click.click_time)
-                }));
+                // データの形式を確認し、必要なプロパティが存在することを確認
+                return data.clicks.map(click => {
+                    if (!click.x || !click.y || !click.click_time || !click.id) {
+                        console.error('Invalid click data:', click);
+                        return null;
+                    }
+                    return {
+                        ...click,
+                        x: parseFloat(click.x),
+                        y: parseFloat(click.y),
+                        click_time: parseFloat(click.click_time),
+                        comment: click.comment // コメント情報を含める
+                    };
+                }).filter(click => click !== null);
             } else {
                 throw new Error(data.message);
             }
@@ -838,8 +861,12 @@ function fetchReplayData(videoId) {
     });
 }
 
+function setReplaySpeed(speed) {
+    replaySpeed = speed;
+}
+
 // クリックイベントを再生する関数
-function replayClicks(clicks) {
+function replayClicks(clicks, startTime = 0, endTime = Infinity) {
     if (!clicks || !Array.isArray(clicks)) {
         console.error('Invalid clicks data:', clicks);
         return;
@@ -849,14 +876,23 @@ function replayClicks(clicks) {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    player.seekTo(0);
+    player.seekTo(startTime);
     player.playVideo();
+    replayStartTime = Date.now();
+    isReplayPaused = false;
 
-    clicks.forEach((click, index) => {
-        setTimeout(() => {
-            console.log(`Drawing click ${index + 1} at ${click.click_time}, coordinates: (${click.x}, ${click.y})`);
-            drawCircleWithNumberAndFade(ctx, click.x, click.y, click.id);
-        }, click.click_time * 1000);
+    const filteredClicks = clicks.filter(click => 
+        click.click_time >= startTime && click.click_time <= endTime
+    );
+
+    filteredClicks.forEach((click, index) => {
+        const timeout = setTimeout(() => {
+            if (!isReplayPaused) {
+                console.log(`Drawing click ${index + 1} at ${click.click_time}, coordinates: (${click.x}, ${click.y})`);
+                drawCircleWithNumberAndFade(ctx, click.x, click.y, click.id, click);
+            }
+        }, (click.click_time - startTime) * 1000 / replaySpeed);
+        replayTimeouts.push(timeout);
     });
 }
 
@@ -896,25 +932,50 @@ function replayClickData(clicks) {
     });
 }
 
-function drawCircleWithNumberAndFade(ctx, x, y, id) {
+function showClickInfo(event, click) {
+    const tooltip = document.createElement('div');
+    tooltip.className = 'click-tooltip';
+    tooltip.innerHTML = `
+        時間: ${click.click_time.toFixed(2)}秒<br>
+        コメント: ${click.comment || 'なし'}
+    `;
+    document.body.appendChild(tooltip);
+
+    const x = event.pageX + 10;
+    const y = event.pageY + 10;
+    tooltip.style.left = x + 'px';
+    tooltip.style.top = y + 'px';
+}
+
+function hideClickInfo() {
+    const tooltip = document.querySelector('.click-tooltip');
+    if (tooltip) {
+        tooltip.remove();
+    }
+}
+
+function drawCircleWithNumberAndFade(ctx, x, y, id, click) {
+    // 無効なクリックデータのチェック
+    if (!click) {
+        console.error('Invalid click data:', click);
+        return;
+    }
     const canvas = ctx.canvas;
     const radius = 10;
     
-    // 座標をそのまま使用（正規化しない）
+    // 描画座標の設定
     const drawX = x;
     const drawY = y;
-
-    console.log(`Drawing circle at (${drawX}, ${drawY}) with ID ${id}`); // デバッグ用
-
+    // 描画関数の定義
     function draw(alpha) {
         ctx.save();
         ctx.globalAlpha = alpha;
-        
+        // 赤い円を描画
         ctx.beginPath();
         ctx.arc(drawX, drawY, radius, 0, 2 * Math.PI, false);
         ctx.fillStyle = 'red';
         ctx.fill();
-
+        // IDを白色で円の中央に描画
         ctx.fillStyle = 'white';
         ctx.font = 'bold 12px Arial';
         ctx.textAlign = 'center';
@@ -923,18 +984,74 @@ function drawCircleWithNumberAndFade(ctx, x, y, id) {
         
         ctx.restore();
     }
-
+    // 初期描画
     draw(1.0);
 
+    // 詳細情報表示用の要素を作成
+    const infoElement = document.createElement('div');
+    infoElement.className = 'click-info';
+    infoElement.style.position = 'absolute';
+    infoElement.style.left = `${drawX + 15}px`;
+    infoElement.style.top = `${drawY + 15}px`;
+    infoElement.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    infoElement.style.color = 'white';
+    infoElement.style.padding = '5px';
+    infoElement.style.borderRadius = '3px';
+    infoElement.style.display = 'none';
+    infoElement.style.zIndex = '1000';
+    // コメントの有無を確認
+    const commentText = click.comment ? click.comment : 'なし';
+    infoElement.innerHTML = `
+        ID: ${id}<br>
+        時間: ${click.click_time.toFixed(2)}秒<br>
+        コメント: ${commentText}
+    `;
+    document.getElementById('video-container').appendChild(infoElement);
+
+    // マウスオーバー用のヒットエリアを作成
+    const hitArea = document.createElement('div');
+    hitArea.style.position = 'absolute';
+    hitArea.style.left = `${drawX - radius}px`;
+    hitArea.style.top = `${drawY - radius}px`;
+    hitArea.style.width = `${radius * 2}px`;
+    hitArea.style.height = `${radius * 2}px`;
+    hitArea.style.cursor = 'pointer';
+    hitArea.style.zIndex = '999';
+    document.getElementById('video-container').appendChild(hitArea);
+
+    // マウスオーバーイベントの設定
+    hitArea.addEventListener('mouseover', () => {
+        infoElement.style.display = 'block';
+    });
+
+    hitArea.addEventListener('mouseout', () => {
+        infoElement.style.display = 'none';
+    });
+
+    // フェードアウト処理
     let alpha = 1.0;
+    let startTime = Date.now();
     const fadeInterval = setInterval(() => {
-        alpha -= 0.025;
-        if (alpha <= 0) {
-            clearInterval(fadeInterval);
-        } else {
-            draw(alpha);
+        if (!isReplayPaused) {
+            const elapsed = (Date.now() - startTime) / 1000;
+            alpha = Math.max(0, 1 - (elapsed / 2)); // 2秒でフェードアウト
+
+            if (alpha <= 0) {
+                clearInterval(fadeInterval);
+                ctx.clearRect(drawX - radius - 1, drawY - radius - 1, (radius + 1) * 2, (radius + 1) * 2);
+                document.getElementById('video-container').removeChild(infoElement);
+                document.getElementById('video-container').removeChild(hitArea);
+                const index = activeFadeIntervals.indexOf(fadeInterval);
+                if (index > -1) {
+                    activeFadeIntervals.splice(index, 1);
+                }
+            } else {
+                draw(alpha);
+            }
         }
-    }, 50);
+    }, 20);
+
+    activeFadeIntervals.push(fadeInterval);
 }
 
 function clearCanvas() {
@@ -1048,4 +1165,23 @@ function createHeatmapData(clicks) {
 document.addEventListener('DOMContentLoaded', function() {
     initializeCanvas();
     initHeatmap();
+});
+
+document.getElementById('speedControl').addEventListener('input', function() {
+    const speed = parseFloat(this.value);
+    setReplaySpeed(speed);
+    document.getElementById('speedValue').textContent = speed.toFixed(1) + 'x';
+});
+
+document.getElementById('applyReplaySettings').addEventListener('click', function() {
+    const startTime = parseFloat(document.getElementById('startTime').value) || 0;
+    const endTime = parseFloat(document.getElementById('endTime').value) || Infinity;
+    fetchReplayData(videoId).then(clicks => {
+        if (clicks && clicks.length > 0) {
+            replayClicks(clicks, startTime, endTime);
+        } else {
+            console.error('No replay data available');
+            alert('リプレイデータがありません。');
+        }
+    });
 });
