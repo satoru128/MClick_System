@@ -14,7 +14,16 @@ $comment = isset($data['comment']) ? $data['comment'] : null;
 try {
     $pdo->beginTransaction();
 
-    // コメントを含む座標データを保存
+    // 同じ座標とclick_timeを持つ既存のデータを削除
+    $stmt = $pdo->prepare("DELETE FROM click_coordinates WHERE user_id = :user_id AND video_id = :video_id AND x_coordinate = :x AND y_coordinate = :y AND click_time = :click_time");
+    $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+    $stmt->bindParam(':x', $x, PDO::PARAM_INT);
+    $stmt->bindParam(':y', $y, PDO::PARAM_INT);
+    $stmt->bindParam(':click_time', $click_time, PDO::PARAM_STR);
+    $stmt->bindParam(':video_id', $video_id, PDO::PARAM_STR);
+    $stmt->execute();
+
+    // コメントを含む新しい座標データを保存
     $stmt = $pdo->prepare("INSERT INTO click_coordinates (user_id, x_coordinate, y_coordinate, click_time, video_id, comment) VALUES (:user_id, :x, :y, :click_time, :video_id, :comment)");
     $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
     $stmt->bindParam(':x', $x, PDO::PARAM_INT);

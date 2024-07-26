@@ -42,8 +42,7 @@ C:\xampp\htdocs\MClick_System\
 |   |   |-- data_check.php(データチェックを行うスクリプト)
 
 
-
-MariaDB [coordinates_db]> desc users;
+MariaDB [coordinates_db]>  desc users;
 +----------+--------------+------+-----+---------+-------+
 | Field    | Type         | Null | Key | Default | Extra |
 +----------+--------------+------+-----+---------+-------+
@@ -52,7 +51,7 @@ MariaDB [coordinates_db]> desc users;
 | password | varchar(255) | NO   |     | NULL    |       |
 +----------+--------------+------+-----+---------+-------+
 
-MariaDB [coordinates_db]> desc click_coordinates;
+MariaDB [coordinates_db]>  desc click_coordinates;
 +--------------+---------------+------+-----+---------+----------------+
 | Field        | Type          | Null | Key | Default | Extra          |
 +--------------+---------------+------+-----+---------+----------------+
@@ -70,7 +69,7 @@ MariaDB [coordinates_db]> desc click_counts;
 | Field       | Type         | Null | Key | Default | Extra          |
 +-------------+--------------+------+-----+---------+----------------+
 | id          | int(11)      | NO   | PRI | NULL    | auto_increment |
-| user_id     | int(11)      | YES  | MUL | NULL    |                |
-| video_id    | varchar(255) | YES  |     | NULL    |                |
+| user_id     | int(11)      | NO   | MUL | NULL    |                |
+| video_id    | varchar(255) | NO   |     | NULL    |                |
 | click_count | int(11)      | YES  |     | 0       |                |
 +-------------+--------------+------+-----+---------+----------------+

@@ -258,13 +258,13 @@ function initializeControls() {
     commentSubmit.addEventListener('click', () => {
         const comment = commentInput.value;
         if (isRightClickComment) {
-            saveRightClickComment(comment);
+            handleRightClickComment(comment);
         } else {
             saveComment(comment, isUpdatingComment);
         }
         commentModal.style.display = 'none';
         player.playVideo();
-        commentInput.value = ''; // コメント入力欄をクリア
+        commentInput.value = '';
         isUpdatingComment = false;
         isRightClickComment = false;
     });
@@ -279,7 +279,8 @@ function initializeControls() {
         player.pauseVideo();
         commentModal.style.display = 'block';
         contextMenu.style.display = 'none';
-        isRightClickComment = true; // 右クリックでのコメント追加であることを示すフラグ
+        isRightClickComment = true;
+        logRightClickCoordinates(); // デバッグ用
     });
 
     recordFusen.addEventListener('click', () => {
@@ -316,12 +317,17 @@ function initializeControls() {
             event.preventDefault();
             if (isPlaying && isCoordinateEnabled) {
                 const rect = canvas.getBoundingClientRect();
-                rightClickX = event.clientX - rect.left;
-                rightClickY = event.clientY - rect.top;
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+                
+                // 保存する座標はキャンバスの実際のサイズに対する比率で保存
+                rightClickX = x / canvas.clientWidth;
+                rightClickY = y / canvas.clientHeight;
+                
                 contextMenu.style.top = `${event.clientY}px`;
                 contextMenu.style.left = `${event.clientX}px`;
                 contextMenu.style.display = 'block';
-                player.pauseVideo();  // 右クリック時に動画を一時停止
+                player.pauseVideo();
             }
         });
 
@@ -514,20 +520,40 @@ function updateCoordinateTable() {
         .then(data => {
             if (data.status === 'success') {
                 const container = document.getElementById('coordinate-data');
-                const table = container.querySelector('table') || document.createElement('table');
-                const newRow = document.createElement('tr');
-                const latestCoord = data.data[data.data.length - 1];
-                
-                [latestCoord.id, latestCoord.x_coordinate, latestCoord.y_coordinate, parseFloat(latestCoord.click_time).toFixed(3), latestCoord.comment].forEach(text => {
-                    const cell = document.createElement('td');
-                    cell.textContent = text;
-                    newRow.appendChild(cell);
+                container.innerHTML = ''; // Clear existing content
+                const table = document.createElement('table');
+                table.style.width = '100%';
+                table.style.borderCollapse = 'collapse';
+
+                // Add table header
+                const headerRow = document.createElement('tr');
+                ['ID', 'X', 'Y', 'Time', 'Comment'].forEach(headerText => {
+                    const header = document.createElement('th');
+                    header.textContent = headerText;
+                    header.style.border = '1px solid #ddd';
+                    header.style.padding = '5px';
+                    header.style.textAlign = 'center';
+                    headerRow.appendChild(header);
                 });
-                
-                table.appendChild(newRow);
-                if (!container.contains(table)) {
-                    container.appendChild(table);
-                }
+                table.appendChild(headerRow);
+
+                // Sort data by click_time
+                data.data.sort((a, b) => parseFloat(a.click_time) - parseFloat(b.click_time));
+
+                // Add table rows
+                data.data.forEach(coord => {
+                    const row = document.createElement('tr');
+                    [coord.id, coord.x_coordinate, coord.y_coordinate, parseFloat(coord.click_time).toFixed(3), coord.comment].forEach(text => {
+                        const cell = document.createElement('td');
+                        cell.textContent = text;
+                        cell.style.border = '1px solid #ddd';
+                        cell.style.padding = '5px';
+                        row.appendChild(cell);
+                    });
+                    table.appendChild(row);
+                });
+
+                container.appendChild(table);
             } else {
                 console.error('Error fetching click coordinates:', data.message);
             }
@@ -894,10 +920,12 @@ function fetchReplayData(videoId) {
 
 function setReplaySpeed(speed) {
     replaySpeed = speed;
+    player.setPlaybackRate(speed);
 }
 
 // クリックイベントを再生する関数
 function replayClicks(clicks, startTime = 0, endTime = Infinity) {
+    player.setPlaybackRate(replaySpeed);
     clearCanvas();
     replayTimeouts.forEach(clearTimeout);
     replayTimeouts = [];
@@ -1050,7 +1078,9 @@ function drawCircleWithNumberAndFade(ctx, x, y, id, click) {
 
     // マウスオーバーイベントの設定
     hitArea.addEventListener('mouseover', () => {
-        infoElement.style.display = 'block';
+        if (alpha > 0) {
+            infoElement.style.display = 'block';
+        }
     });
 
     hitArea.addEventListener('mouseout', () => {
@@ -1096,16 +1126,15 @@ function exportData() {
         .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
-                // BOMを追加してUTF-8で正しく開けるようにする
                 const BOM = "\uFEFF";
-                const csvContent = BOM + "ID\tX\tY\tTime\tComment\n"
-                    + data.data.map(e => `${e.id}\t${e.x_coordinate}\t${e.y_coordinate}\t${e.click_time}\t${e.comment}`).join("\n");
+                const csvContent = BOM + "ID,X,Y,Time,Comment\n"
+                    + data.data.map(e => `${e.id},${e.x_coordinate},${e.y_coordinate},${e.click_time},"${e.comment}"`).join("\n");
 
-                const blob = new Blob([csvContent], { type: 'text/tab-separated-values;charset=utf-8;' });
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement("a");
                 link.setAttribute("href", url);
-                link.setAttribute("download", "click_data.tsv");
+                link.setAttribute("download", "click_data.csv");
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
@@ -1214,3 +1243,37 @@ document.getElementById('applyReplaySettings').addEventListener('click', functio
         }
     });
 });
+
+function handleRightClickComment(comment) {
+    const clickTime = player.getCurrentTime();
+
+    fetch('./coordinate/php/save_coordinates.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            user_id: userId,
+            x: rightClickX,
+            y: rightClickY,
+            click_time: clickTime,
+            video_id: videoId,
+            comment: comment
+        })
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.status === "success") {
+            console.log('Right-click comment saved successfully');
+            updateCoordinateTable();
+            updateClickCount(userId, videoId);
+        } else {
+            console.error('Error:', result.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+}
+
+function logRightClickCoordinates() {
+    console.log(`Right-click coordinates: (${rightClickX}, ${rightClickY})`);
+}
