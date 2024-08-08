@@ -4,17 +4,17 @@
 }
 /*トグルボタン*/
 #toggle-coordinate-container {
-    margin-top: 10px;
-    margin-bottom: 10px;
+    display: flex;  /* 要素を横並び */
     text-align: left;
 }
-.switch-container { /* 要素を横並び */
-    display: flex;
+.switch-container { 
+    display: flex;  /* 要素を横並び */
     align-items: center;
-    margin-bottom: 10px;
+    margin: 5px 10px 10px 10px;
 }
 .switch-text {
     margin-right: 10px;
+    text-align: center;
 }
 .switch {
     position: relative;
