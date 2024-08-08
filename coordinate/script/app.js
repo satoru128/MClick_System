@@ -98,6 +98,68 @@ function initializeControls() {
     const confirmUpdateNo = document.getElementById('confirmUpdateNo');
     const mistakeBtn = document.getElementById('mistakeBtn'); 
     let isUpdatingComment = false;
+    const toggleCoordinateBtn = document.getElementById('toggleCoordinateBtn');
+    const toggleCoordinateText = toggleCoordinateBtn.parentElement.previousElementSibling;
+    const replayBtn = document.getElementById('replayBtn');
+    const replayText = replayBtn.parentElement.previousElementSibling;
+    
+    function updateButtonStates() {
+        if (isCoordinateEnabled) {
+            replayBtn.disabled = true;
+            replayBtn.parentElement.classList.add('disabled');
+        } else {
+            replayBtn.disabled = false;
+            replayBtn.parentElement.classList.remove('disabled');
+        }
+    
+        if (isReplayEnabled) {
+            toggleCoordinateBtn.disabled = true;
+            toggleCoordinateBtn.parentElement.classList.add('disabled');
+        } else {
+            toggleCoordinateBtn.disabled = false;
+            toggleCoordinateBtn.parentElement.classList.remove('disabled');
+        }
+    }
+    
+    toggleCoordinateBtn.addEventListener('change', () => {
+        if (toggleCoordinateBtn.checked && !isReplayEnabled) {
+            isCoordinateEnabled = true;
+            player.pauseVideo();
+            toggleCoordinateText.textContent = "座標取得：オン";
+        } else {
+            isCoordinateEnabled = false;
+            player.pauseVideo();
+            toggleCoordinateText.textContent = "座標取得：オフ";
+        }
+        updateButtonStates();
+    });
+    
+    replayBtn.addEventListener('change', () => {
+        if (replayBtn.checked && !isCoordinateEnabled) {
+            isReplayEnabled = true;
+            player.pauseVideo();
+            replayText.textContent = "リプレイ：オン";
+            fetchReplayData(videoId).then(clicks => {
+                if (clicks && clicks.length > 0) {
+                    replayClicks(clicks);
+                } else {
+                    console.error('No replay data available');
+                    alert('リプレイデータがありません。');
+                    isReplayEnabled = false;
+                    replayBtn.checked = false;
+                    replayText.textContent = "リプレイ：オフ";
+                    updateButtonStates();
+                }
+            });
+        } else {
+            isReplayEnabled = false;
+            player.pauseVideo();
+            clearCanvas();
+            replayText.textContent = "リプレイ：オフ";
+        }
+        updateButtonStates();
+    });
+    updateButtonStates();// 初期状態の設定
 
     playBtn.addEventListener('click', () => {
         player.playVideo();
@@ -162,50 +224,6 @@ function initializeControls() {
 
     volumeBar.addEventListener('input', () => {
         player.setVolume(volumeBar.value * 100);
-    });
-
-    const toggleCoordinateBtn = document.getElementById('toggleCoordinateBtn');
-    toggleCoordinateBtn.addEventListener('click', () => {
-        if (!isCoordinateEnabled && !isReplayEnabled) {
-            isCoordinateEnabled = true;
-            player.pauseVideo();
-            toggleCoordinateBtn.classList.add('on');
-            toggleCoordinateBtn.classList.remove('off');
-            toggleCoordinateBtn.textContent = "座標取得オン";
-        } else if (isCoordinateEnabled) {
-            isCoordinateEnabled = false;
-            player.pauseVideo(); // 動画を一時停止
-            toggleCoordinateBtn.classList.remove('on');
-            toggleCoordinateBtn.classList.add('off');
-            toggleCoordinateBtn.textContent = "座標取得オフ";
-        }
-    });
-
-    const replayBtn = document.getElementById('replayBtn');
-    replayBtn.addEventListener('click', () => {
-        if (!isReplayEnabled && !isCoordinateEnabled) {
-            isReplayEnabled = true;
-            player.pauseVideo();
-            replayBtn.textContent = "リプレイオン";
-            replayBtn.classList.add('on');
-            fetchReplayData(videoId).then(clicks => {
-                if (clicks && clicks.length > 0) {
-                    replayClicks(clicks);
-                } else {
-                    console.error('No replay data available');
-                    alert('リプレイデータがありません。');
-                    isReplayEnabled = false;
-                    replayBtn.classList.remove('on');
-                    replayBtn.textContent = "リプレイオフ";
-                }
-            });
-        } else if (isReplayEnabled) {
-            isReplayEnabled = false;
-            player.pauseVideo();
-            clearCanvas();
-            replayBtn.classList.remove('on');
-            replayBtn.textContent = "リプレイオフ";
-        }
     });
 
     resetBtn.addEventListener('click', () => {

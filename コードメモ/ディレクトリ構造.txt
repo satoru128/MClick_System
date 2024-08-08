@@ -42,7 +42,7 @@ C:\xampp\htdocs\MClick_System\
 |   |   |-- data_check.php(データチェックを行うスクリプト)
 
 
-MariaDB [coordinates_db]>  desc users;
+MariaDB [coordinates_db]> desc users;
 +----------+--------------+------+-----+---------+-------+
 | Field    | Type         | Null | Key | Default | Extra |
 +----------+--------------+------+-----+---------+-------+

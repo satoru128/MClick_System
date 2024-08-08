@@ -20,9 +20,22 @@
     $user_id = $_SESSION['user_id'];
     $video_id = isset($_SESSION['video_id']) ? $_SESSION['video_id'] : 'n0tt3meYVkU'; // デフォルトの動画IDを設定
     ?>
+
     <div id="toggle-coordinate-container">
-        <button id="toggleCoordinateBtn" class="off">座標取得オフ</button>
-        <button id="replayBtn" class="off">リプレイオフ</button>
+        <div class="switch-container">
+            <span class="switch-text">座標取得：オフ</span>
+            <label class="switch">
+                <input type="checkbox" id="toggleCoordinateBtn">
+                <span class="slider round"></span>
+            </label>
+        </div>
+        <div class="switch-container">
+            <span class="switch-text">リプレイ：オフ</span>
+            <label class="switch">
+                <input type="checkbox" id="replayBtn">
+                <span class="slider round"></span>
+            </label>
+        </div>
     </div>
     
     <div id="video-and-data-container">
@@ -33,7 +46,7 @@
         <div id="coordinate-data-container">
             <h2>クリック座標データ</h2>
             <div id="coordinate-data">
-                <!-- ここに座標データが動的に追加されます -->
+                <!-- ここに座標データが動的に追加 -->
             </div>
         </div>
     </div>

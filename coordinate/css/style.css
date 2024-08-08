@@ -2,6 +2,78 @@
 *, *::before, *::after{
     box-sizing: border-box;
 }
+/*トグルボタン*/
+#toggle-coordinate-container {
+    margin-top: 10px;
+    margin-bottom: 10px;
+    text-align: left;
+}
+.switch-container { /* 要素を横並び */
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.switch-text {
+    margin-right: 10px;
+}
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 48px;
+    height: 28px;
+}
+.switch input { /*チェックボックスを見えなくする*/
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.slider {   /*スライダーの背景*/
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+}
+.slider:before {    /*つまみ部分*/
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+}
+
+input:checked + .slider {   /*オン時の処理*/
+    background-color: #2196F3;
+}
+
+input:checked + .slider:before {/*オン時に X方向へ移動*/
+transform: translateX(20px);
+}
+
+.slider.round { /*丸みをつける*/
+    border-radius: 34px;
+}
+.slider.round:before {  /*丸みをつける*/
+    border-radius: 50%;
+}
+.switch.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.switch.disabled .slider:before {
+    display: none;
+}
+
+.switch.disabled .slider {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+
 #video-container {
     position: relative;
     width: 640px;
@@ -57,23 +129,6 @@
 }
 
 /*リセットボタン*/
-#toggle-coordinate-container, #replay-container{
-    margin-top: 10px;
-    margin-bottom: 10px;
-    text-align: left;
-}
-#toggleCoordinateBtn, #replayBtn{
-    padding: 10px;
-    font-size: 16px;
-    border: 2px solid green;
-    background-color: white;
-    color: green;
-    cursor: pointer;
-}
-#toggleCoordinateBtn.on ,#replayBtn.on{
-    background-color: green;
-    color: white;
-}
 #reset-container {
     margin-top: 20px; 
     display: flex;
