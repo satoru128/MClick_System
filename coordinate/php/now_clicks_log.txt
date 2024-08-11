@@ -3,3 +3,4 @@ ID    User ID    X Coordinate    Y Coordinate    Click Time     Video ID     Com
 2     1111       432             177             2.55305         n0tt3meYVkU     N/A            
 5     1111       495             146             3.61104         n0tt3meYVkU     aaaa           
 6     1111       167             210             3.50928         n0tt3meYVkU     N/A            
+7     1111       145             95              8.16019         n0tt3meYVkU     N/A            

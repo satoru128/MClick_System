@@ -8,6 +8,8 @@
     <script src="https://www.youtube.com/iframe_api"></script>
     <script src="./coordinate/script/app.js" defer></script>
     <script src="./coordinate/script/script.js" defer></script>
+    <!-- Bootstrap CSSの読み込み -->
+    <link href="./Bootstrap/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
     <?php
@@ -51,7 +53,7 @@
         </div>
     </div>
     <div id="controls">
-        <button id="playBtn">再生</button>
+        <button id="playBtn" >再生</button>
         <button id="pauseBtn">一時停止</button>
         <button id="stopBtn">停止</button>
         <button id="muteBtn" data-pressed="false">🔊</button>
@@ -117,5 +119,9 @@
         <button id="recordComment">コメント付き座標の記録</button>
         <button id="recordFusen">付箋</button>
     </div>
+
+    <!-- Bootstrap JSの読み込み -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="./Bootstrap/js/bootstrap.min.js"></script>
 </body>
 </html>
