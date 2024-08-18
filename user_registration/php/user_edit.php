@@ -18,7 +18,7 @@
         show_top("選択情報");
         show_user($member);
         show_operations($user_id);
-        show_bottom(true);
+        //show_bottom(true);
     } else {
         // ユーザーが見つからない場合の処理
         header("Location: index.php?error=ユーザーが見つかりません");

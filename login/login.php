@@ -14,7 +14,7 @@
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-body">
-                        <h1 class="card-title text-center mb-4">ログイン</h1>
+                        <h1 class="card-title text-center mb-4 ">ログイン</h1>
 
                         <?php
                             require_once(__DIR__ . "/../user_registration/php/common.php");

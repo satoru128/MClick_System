@@ -19,5 +19,5 @@
 
     show_top("情報更新"); 
     show_update($name, $user_id, $password, $old_user_id);
-    show_bottom(true);
+    //show_bottom(true);
 ?>
