@@ -24,6 +24,7 @@
                         ?>
 
                         <form action="login_process.php" method="post">
+                        <div class="mx-auto" style="max-width: 400px;">
                             <div class="mb-3">
                                 <label for="user_id" class="form-label">ID：</label>
                                 <input type="text" class="form-control" id="user_id" name="user_id" placeholder="例）1111" required>
@@ -43,6 +44,7 @@
                             <div class="d-grid">
                                 <input type="submit" class="btn btn-primary" value="ログイン">
                             </div>
+                        </div>
                         </form>
                         <p class="mt-3 text-center">
                             <a href="../user_registration/php/user_input.php" class="text-decoration-none">新規登録</a>

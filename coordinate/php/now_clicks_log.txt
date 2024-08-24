@@ -1,6 +1,3 @@
 ID    User ID    X Coordinate    Y Coordinate    Click Time     Video ID     Comment
-1     1111       369             209             1.75433         n0tt3meYVkU     N/A            
-2     1111       432             177             2.55305         n0tt3meYVkU     N/A            
-5     1111       495             146             3.61104         n0tt3meYVkU     aaaa           
-6     1111       167             210             3.50928         n0tt3meYVkU     N/A            
-7     1111       145             95              8.16019         n0tt3meYVkU     N/A            
+1     1121       506             169             10.59749        n0tt3meYVkU     N/A            
+2     1121       576             194             13.58931        n0tt3meYVkU     N/A            

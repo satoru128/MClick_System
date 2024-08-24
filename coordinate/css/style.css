@@ -73,6 +73,9 @@ transform: translateX(20px);
     cursor: not-allowed;
 }
 
+#controls {
+    display: flex;
+}
 
 #video-container {
     position: relative;
@@ -98,10 +101,6 @@ transform: translateX(20px);
     border: 1px solid black;
     background-color: transparent; /* 背景を透明に*/
     opacity: 1; /* 透明度を1に */
-}
-
-#controls {
-    margin-top: 20px;
 }
 
 #videoSelection{
@@ -139,26 +138,29 @@ transform: translateX(20px);
     
 }
 
-.modal {
-    display: none;
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0,0,0,0.4);
-}
-/* モーダルコンテンツのスタイル */
+.modal-backdrop {
+    z-index: 1040;
+  }
+  
+  .modal {
+    z-index: 1050;
+  }
+
 .modal-content {
+    z-index: 1060;
     background-color: #fefefe;
-    margin: 15% auto;
+    margin: 10% auto;
     padding: 20px;
     border: 1px solid #888;
-    width: 300px;
+    width: 80%;
+    max-width: 500px;
     text-align: center;
-    border-radius: 10px; /* 角を丸くする */
-    box-shadow: 0px 0px 10px 2px rgba(0,0,0,0.1); /* 影を追加 */
+    border-radius: 10px;
+    box-shadow: 0px 0px 10px 2px rgba(0,0,0,0.1);
+}
+
+.modal-open {
+    overflow: hidden;
 }
 
 /* 送信ボタンとリセットボタンのスタイル */
@@ -196,13 +198,13 @@ transform: translateX(20px);
 }
 
 /*コメントボタン*/
-#comment-section {
+/* #comment-section {
     margin-top: 20px;
-}
+} */
 #commentModal {
     display: none;
     position: fixed;
-    z-index: 1000;
+    z-index: 1060;
     left: 0;
     top: 0;
     width: 100%;

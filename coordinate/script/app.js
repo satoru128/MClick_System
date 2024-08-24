@@ -22,6 +22,7 @@ let pausedFadeIntervals = [];
 let replayStartTime = 0;
 let replayPauseTime = 0;
 let activeFadeIntervals = [];
+let commentModalBS, confirmUpdateModalBS;
 
 // YouTube IFrame API の初期化
 function onYouTubeIframeAPIReady() {
@@ -67,6 +68,7 @@ function initializePlayer(videoId) {
 }
 
 function onPlayerReady(event) {
+    console.log('Player is ready');
     initializeControls();
 }
 
@@ -161,23 +163,36 @@ function initializeControls() {
     });
     updateButtonStates();// 初期状態の設定
 
+    function ensurePlayer(action) {
+        if (player && typeof player[action] === 'function') {
+            return true;
+        }
+        console.error(`Player not initialized or ${action} not available`);
+        return false;
+    }
+
     playBtn.addEventListener('click', () => {
-        player.playVideo();
-        isPlaying = true;
-        window.postMessage('play', '*');
-        if (isReplayEnabled && isReplayPaused) {
-            resumeReplay();
+        if (ensurePlayer('playVideo')) {
+            player.playVideo();
+            isPlaying = true;
+            window.postMessage('play', '*');
+            if (isReplayEnabled && isReplayPaused) {
+                resumeReplay();
+            }
         }
     });
 
     pauseBtn.addEventListener('click', () => {
-        player.pauseVideo();
-        isPlaying = false;
-        window.postMessage('pause', '*');
-        if (isReplayEnabled && !isReplayPaused) {
-            pauseReplay();
+        if (ensurePlayer('pauseVideo')) {
+            player.pauseVideo();
+            isPlaying = false;
+            window.postMessage('pause', '*');
+            if (isReplayEnabled && !isReplayPaused) {
+                pauseReplay();
+            }
         }
     });
+
 
     stopBtn.addEventListener('click', () => {
         player.stopVideo();
@@ -243,34 +258,44 @@ function initializeControls() {
         player.playVideo();
         resetModal.style.display = 'none'; // モーダルを閉じる
     });
+      
+    commentModalBS = new bootstrap.Modal(document.getElementById('commentModal'));
+    confirmUpdateModalBS = new bootstrap.Modal(document.getElementById('confirmUpdateModal'));
 
+    function showCommentModal() {
+        setTimeout(() => {
+            commentModalBS.show();
+        }, 300); // 300ミリ秒の遅延を追加
+    }
+
+    // コメントボタンのイベントリスナー
     commentBtn.addEventListener('click', () => {
         player.pauseVideo();
-        isRightClickComment = false; // コメントボタンからの通常のコメント追加であることを示す
+        isRightClickComment = false;
         checkLatestComment().then(hasComment => {
             if (hasComment) {
-                confirmUpdateModal.style.display = 'block';
+                confirmUpdateModalBS.show();
             } else {
-                commentModal.style.display = 'block';
+                showCommentModal();
             }
         });
     });
 
     confirmUpdateYes.addEventListener('click', () => {
         isUpdatingComment = true;
-        confirmUpdateModal.style.display = 'none';
-        commentModal.style.display = 'block';
+        confirmUpdateModalBS.hide();
+        showCommentModal();
     });
 
     confirmUpdateNo.addEventListener('click', () => {
-        confirmUpdateModal.style.display = 'none';
+        confirmUpdateModalBS.hide();
         player.playVideo();
     });
 
     commentCancel.addEventListener('click', () => {
-        commentModal.style.display = 'none';
+        commentModalBS.hide();
         player.playVideo();
-        commentInput.value = ''; // コメント入力欄をクリア
+        commentInput.value = '';
     });
 
     commentSubmit.addEventListener('click', () => {
@@ -280,12 +305,34 @@ function initializeControls() {
         } else {
             saveComment(comment, isUpdatingComment);
         }
-        commentModal.style.display = 'none';
+        commentModalBS.hide();
         player.playVideo();
         commentInput.value = '';
         isUpdatingComment = false;
         isRightClickComment = false;
     });
+
+    function showModal(modal) {
+        if (modal && typeof modal.show === 'function') {
+            modal.show();
+            document.body.classList.add('modal-open');
+        } else {
+            console.error('Invalid modal object:', modal);
+        }
+    }
+
+    function hideModal(modal) {
+        if (modal && typeof modal.hide === 'function') {
+            modal.hide();
+            document.body.classList.remove('modal-open');
+            const backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) {
+                backdrop.parentNode.removeChild(backdrop);
+            }
+        } else {
+            console.error('Invalid modal object:', modal);
+        }
+    }
 
     recordScene.addEventListener('click', () => {
         handleSceneClick(userId, videoId);
@@ -405,6 +452,7 @@ function initializeCanvas() {
     return ctx;
 }
 
+//クリック座標データの表示
 function displayClickCoordinates(coordinates) {
     const container = document.getElementById('coordinate-data');
     container.innerHTML = ''; // 以前の内容をクリア
