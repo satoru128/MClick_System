@@ -99,57 +99,57 @@ function initializeControls() {
     const confirmUpdateYes = document.getElementById('confirmUpdateYes');
     const confirmUpdateNo = document.getElementById('confirmUpdateNo');
     const mistakeBtn = document.getElementById('mistakeBtn'); 
-    let isUpdatingComment = false;
+    let isUpdatingComment = false;    
+    // トグルボタンの初期化と状態管理
     const toggleCoordinateBtn = document.getElementById('toggleCoordinateBtn');
     const toggleCoordinateText = toggleCoordinateBtn.parentElement.previousElementSibling;
     const replayBtn = document.getElementById('replayBtn');
     const replayText = replayBtn.parentElement.previousElementSibling;
-    
-    function updateButtonStates() {
-        if (isCoordinateEnabled) {
-            replayBtn.disabled = true;
-            replayBtn.parentElement.classList.add('disabled');
-        } else {
-            replayBtn.disabled = false;
-            replayBtn.parentElement.classList.remove('disabled');
-        }
-    
-        if (isReplayEnabled) {
-            toggleCoordinateBtn.disabled = true;
-            toggleCoordinateBtn.parentElement.classList.add('disabled');
-        } else {
-            toggleCoordinateBtn.disabled = false;
-            toggleCoordinateBtn.parentElement.classList.remove('disabled');
-        }
-    }
+    const toggleCoordinateLabel = toggleCoordinateBtn.nextElementSibling;
+    const replayLabel = replayBtn.nextElementSibling;
+
+    let isCoordinateEnabled = false;
+    let isReplayEnabled = false;
+    let isReplayPaused = true;
     
     toggleCoordinateBtn.addEventListener('change', () => {
-        if (toggleCoordinateBtn.checked && !isReplayEnabled) {
+        if (toggleCoordinateBtn.checked) {
+            if (isReplayEnabled) {
+                // リプレイがオンの場合、座標取得をオンにできない
+                toggleCoordinateBtn.checked = false;
+                alert('リプレイモードをオフにしてから座標取得モードをオンにしてください。');
+                return;
+            }
             isCoordinateEnabled = true;
             player.pauseVideo();
-            toggleCoordinateText.textContent = "座標取得：オン";
+            enableCoordinateCapture();
         } else {
             isCoordinateEnabled = false;
             player.pauseVideo();
-            toggleCoordinateText.textContent = "座標取得：オフ";
+            disableCoordinateCapture();
         }
         updateButtonStates();
     });
     
     replayBtn.addEventListener('change', () => {
-        if (replayBtn.checked && !isCoordinateEnabled) {
+        if (replayBtn.checked) {
+            if (isCoordinateEnabled) {
+                // 座標取得がオンの場合、リプレイをオンにできない
+                replayBtn.checked = false;
+                alert('座標取得モードをオフにしてからリプレイモードをオンにしてください。');
+                return;
+            }
             isReplayEnabled = true;
             player.pauseVideo();
-            replayText.textContent = "リプレイ：オン";
+            player.seekTo(0);  // 動画を最初に戻す
             fetchReplayData(videoId).then(clicks => {
                 if (clicks && clicks.length > 0) {
-                    replayClicks(clicks);
+                    prepareReplay(clicks);
                 } else {
                     console.error('No replay data available');
                     alert('リプレイデータがありません。');
                     isReplayEnabled = false;
                     replayBtn.checked = false;
-                    replayText.textContent = "リプレイ：オフ";
                     updateButtonStates();
                 }
             });
@@ -157,11 +157,37 @@ function initializeControls() {
             isReplayEnabled = false;
             player.pauseVideo();
             clearCanvas();
-            replayText.textContent = "リプレイ：オフ";
         }
         updateButtonStates();
     });
-    updateButtonStates();// 初期状態の設定
+
+    function updateButtonStates() {
+        toggleCoordinateBtn.disabled = isReplayEnabled;
+        replayBtn.disabled = isCoordinateEnabled;
+        
+        toggleCoordinateBtn.parentElement.classList.toggle('disabled', isReplayEnabled);
+        replayBtn.parentElement.classList.toggle('disabled', isCoordinateEnabled);
+        
+        toggleCoordinateLabel.textContent = isCoordinateEnabled ? "座標取得：オン" : "座標取得：オフ";
+        replayLabel.textContent = isReplayEnabled ? "リプレイ：オン" : "リプレイ：オフ";
+    }
+    
+    
+    function enableCoordinateCapture() {
+        canvas.addEventListener('click', handleCanvasClick);
+        canvas.style.cursor = 'crosshair';
+    }
+    
+    function disableCoordinateCapture() {
+        canvas.removeEventListener('click', handleCanvasClick);
+        canvas.style.cursor = 'default';
+    }
+    
+    function prepareReplay(clicks) {
+        clearCanvas();
+        currentClicks = clicks;
+        console.log('Replay prepared with', clicks.length, 'clicks');
+    }
 
     function ensurePlayer(action) {
         if (player && typeof player[action] === 'function') {
@@ -171,6 +197,7 @@ function initializeControls() {
         return false;
     }
 
+    // 再生ボタンのイベントリスナー
     playBtn.addEventListener('click', () => {
         if (ensurePlayer('playVideo')) {
             player.playVideo();
@@ -182,6 +209,16 @@ function initializeControls() {
         }
     });
 
+    function resumeReplay() {
+        isReplayPaused = false;
+        const currentTime = player.getCurrentTime();
+        replayClicks(currentClicks, currentTime);
+    }
+    // 初期状態の設定
+    toggleCoordinateBtn.checked = false;
+    replayBtn.checked = false;
+    updateButtonStates();
+
     pauseBtn.addEventListener('click', () => {
         if (ensurePlayer('pauseVideo')) {
             player.pauseVideo();
@@ -192,7 +229,6 @@ function initializeControls() {
             }
         }
     });
-
 
     stopBtn.addEventListener('click', () => {
         player.stopVideo();
@@ -365,29 +401,31 @@ function initializeControls() {
 
     if (!canvas.hasEventListener) {
         canvas.addEventListener('click', (event) => {
-            if (isPlaying && isCoordinateEnabled) {
+            if (isCoordinateEnabled) {
                 handleCanvasClick(event, userId, videoId);
                 clickCount++;
                 clickCountDisplay.textContent = clickCount;
-
+    
                 canvas.classList.add('border-flash');
                 setTimeout(() => {
                     canvas.classList.remove('border-flash');
                 }, 500);
             }
         });
-
+    
         // 右クリックでコンテキストメニューを表示
         canvas.addEventListener('contextmenu', (event) => {
             event.preventDefault();
-            if (isPlaying && isCoordinateEnabled) {
+            if (isCoordinateEnabled) {
                 const rect = canvas.getBoundingClientRect();
-                const x = event.clientX - rect.left;
-                const y = event.clientY - rect.top;
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const x = (event.clientX - rect.left) * scaleX;
+                const y = (event.clientY - rect.top) * scaleY;
                 
                 // 保存する座標はキャンバスの実際のサイズに対する比率で保存
-                rightClickX = x / canvas.clientWidth;
-                rightClickY = y / canvas.clientHeight;
+                rightClickX = x / canvas.width;
+                rightClickY = y / canvas.height;
                 
                 contextMenu.style.top = `${event.clientY}px`;
                 contextMenu.style.left = `${event.clientX}px`;
@@ -395,7 +433,7 @@ function initializeControls() {
                 player.pauseVideo();
             }
         });
-
+    
         canvas.hasEventListener = true;
     }
 
@@ -545,13 +583,15 @@ function resumeReplay() {
 function handleCanvasClick(event, userId, videoId) {
     const canvas = document.getElementById('myCanvas');
     const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (event.clientX - rect.left) * scaleX;
+    const y = (event.clientY - rect.top) * scaleY;
     const clickTime = player.getCurrentTime();
 
     // 保存する座標はキャンバスの実際のサイズに対する比率で保存
-    const saveX = x / canvas.clientWidth;
-    const saveY = y / canvas.clientHeight;
+    const saveX = x / canvas.width;
+    const saveY = y / canvas.height;
 
     // サーバーにデータを送信
     fetch('./coordinate/php/save_coordinates.php', {

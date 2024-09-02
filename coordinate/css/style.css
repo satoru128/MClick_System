@@ -81,6 +81,7 @@ transform: translateX(20px);
     position: relative;
     width: 640px;
     height: 360px;
+    overflow: hidden;
 }
 
 #player, #myCanvas {
