@@ -1,3 +1,6 @@
 ID    User ID    X Coordinate    Y Coordinate    Click Time     Video ID     Comment
-1     1121       506             169             10.59749        n0tt3meYVkU     N/A            
-2     1121       576             194             13.58931        n0tt3meYVkU     N/A            
+1     1111       125             157             3.40928         n0tt3meYVkU     N/A            
+2     1111       170             157             4.47953         n0tt3meYVkU     N/A            
+5     1111       51              108             8.11446         n0tt3meYVkU     HIPPYのHITV   
+14    2222       464             181             1.23873         n0tt3meYVkU     N/A            
+15    2222       134             133             2.75473         n0tt3meYVkU     N/A            
