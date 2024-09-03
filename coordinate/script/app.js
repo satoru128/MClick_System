@@ -83,397 +83,6 @@ function onPlayerReady(event) {
     initializeControls();
 }
 
-/*
-function initializeControls() {
-    initializeCanvas();
-    const playBtn = document.getElementById('playBtn');
-    const pauseBtn = document.getElementById('pauseBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    const muteBtn = document.getElementById('muteBtn');
-    const seekBar = document.getElementById('seekBar');
-    const volumeBar = document.getElementById('volumeBar');
-    const rewindBtn = document.getElementById('rewindBtn');
-    const skipBtn = document.getElementById('skipBtn');
-    const timeDisplay = document.getElementById('timeDisplay');
-    const canvas = document.getElementById('myCanvas');
-    canvas.addEventListener('click', (event) => {
-        if (isCoordinateEnabled) {
-            handleCanvasClick(event, userId, videoId);
-        }
-    });
-    const clickCountDisplay = document.getElementById('clickCount');
-    const resetBtn = document.getElementById('resetBtn');
-    const commentBtn = document.getElementById('commentBtn');
-    const commentModal = document.getElementById('commentModal');
-    const commentSubmit = document.getElementById('commentSubmit');
-    const commentCancel = document.getElementById('commentCancel');
-    const commentInput = document.getElementById('commentInput');
-    const contextMenu = document.getElementById('contextMenu');
-    const recordScene = document.getElementById('recordScene');
-    const recordComment = document.getElementById('recordComment');
-    const recordFusen = document.getElementById('recordFusen');
-    const confirmUpdateModal = document.getElementById('confirmUpdateModal');
-    const confirmUpdateYes = document.getElementById('confirmUpdateYes');
-    const confirmUpdateNo = document.getElementById('confirmUpdateNo');
-    const mistakeBtn = document.getElementById('mistakeBtn'); 
-    let isUpdatingComment = false;    
-    // トグルボタンの初期化と状態管理
-    const toggleCoordinateBtn = document.getElementById('toggleCoordinateBtn');
-    const toggleCoordinateText = toggleCoordinateBtn.parentElement.previousElementSibling;
-    const replayBtn = document.getElementById('replayBtn');
-    const replayText = replayBtn.parentElement.previousElementSibling;
-    const toggleCoordinateLabel = toggleCoordinateBtn.nextElementSibling;
-    const replayLabel = replayBtn.nextElementSibling;
-
-    let isCoordinateEnabled = false;
-    let isReplayEnabled = false;
-    let isReplayPaused = true;
-    
-    toggleCoordinateBtn.addEventListener('change', () => {
-        if (toggleCoordinateBtn.checked) {
-            if (isReplayEnabled) {
-                // リプレイがオンの場合、座標取得をオンにできない
-                toggleCoordinateBtn.checked = false;
-                alert('リプレイモードをオフにしてから座標取得モードをオンにしてください。');
-                return;
-            }
-            isCoordinateEnabled = true;
-            player.pauseVideo();
-            enableCoordinateCapture();
-        } else {
-            isCoordinateEnabled = false;
-            player.pauseVideo();
-            disableCoordinateCapture();
-        }
-        updateButtonStates();
-    });
-    
-    replayBtn.addEventListener('change', () => {
-        if (replayBtn.checked) {
-            if (isCoordinateEnabled) {
-                // 座標取得がオンの場合、リプレイをオンにできない
-                replayBtn.checked = false;
-                alert('座標取得モードをオフにしてからリプレイモードをオンにしてください。');
-                return;
-            }
-            isReplayEnabled = true;
-            player.pauseVideo();
-            player.seekTo(0);  // 動画を最初に戻す
-            fetchReplayData(videoId).then(clicks => {
-                if (clicks && clicks.length > 0) {
-                    prepareReplay(clicks);
-                } else {
-                    console.error('No replay data available');
-                    alert('リプレイデータがありません。');
-                    isReplayEnabled = false;
-                    replayBtn.checked = false;
-                    updateButtonStates();
-                }
-            });
-        } else {
-            isReplayEnabled = false;
-            player.pauseVideo();
-            clearCanvas();
-        }
-        updateButtonStates();
-    });
-
-    function updateButtonStates() {
-        toggleCoordinateBtn.disabled = isReplayEnabled;
-        replayBtn.disabled = isCoordinateEnabled;
-        
-        toggleCoordinateBtn.parentElement.classList.toggle('disabled', isReplayEnabled);
-        replayBtn.parentElement.classList.toggle('disabled', isCoordinateEnabled);
-        
-        toggleCoordinateLabel.textContent = isCoordinateEnabled ? "座標取得：オン" : "座標取得：オフ";
-        replayLabel.textContent = isReplayEnabled ? "リプレイ：オン" : "リプレイ：オフ";
-    }
-    
-    
-    function enableCoordinateCapture() {
-        canvas.addEventListener('click', handleCanvasClick);
-        canvas.style.cursor = 'crosshair';
-    }
-    
-    function disableCoordinateCapture() {
-        canvas.removeEventListener('click', handleCanvasClick);
-        canvas.style.cursor = 'default';
-    }
-    
-    function prepareReplay(clicks) {
-        clearCanvas();
-        currentClicks = clicks;
-        console.log('Replay prepared with', clicks.length, 'clicks');
-    }
-
-    function ensurePlayer(action) {
-        if (player && typeof player[action] === 'function') {
-            return true;
-        }
-        console.error(`Player not initialized or ${action} not available`);
-        return false;
-    }
-
-    // 再生ボタンのイベントリスナー
-    playBtn.addEventListener('click', () => {
-        if (ensurePlayer('playVideo')) {
-            player.playVideo();
-            isPlaying = true;
-            window.postMessage('play', '*');
-            if (isReplayEnabled && isReplayPaused) {
-                resumeReplay();
-            }
-        }
-    });
-
-    function resumeReplay() {
-        isReplayPaused = false;
-        const currentTime = player.getCurrentTime();
-        replayClicks(currentClicks, currentTime);
-    }
-    // 初期状態の設定
-    toggleCoordinateBtn.checked = false;
-    replayBtn.checked = false;
-    updateButtonStates();
-
-    pauseBtn.addEventListener('click', () => {
-        if (ensurePlayer('pauseVideo')) {
-            player.pauseVideo();
-            isPlaying = false;
-            window.postMessage('pause', '*');
-            if (isReplayEnabled && !isReplayPaused) {
-                pauseReplay();
-            }
-        }
-    });
-
-    stopBtn.addEventListener('click', () => {
-        player.stopVideo();
-        isPlaying = false;
-        window.postMessage('stop', '*');
-        if (isReplayEnabled) {
-            clearCanvas();
-            replayClicks(currentClicks, 0);
-        }
-    });
-
-    muteBtn.addEventListener('click', () => {
-        if (player.isMuted()) {
-            player.unMute();
-            muteBtn.textContent = '🔇';
-            muteBtn.setAttribute('data-pressed', 'false');
-        } else {
-            player.mute();
-            muteBtn.textContent = '🔊';
-            muteBtn.setAttribute('data-pressed', 'true');
-        }
-    });
-
-    rewindBtn.addEventListener('click', () => {
-        const currentTime = player.getCurrentTime();
-        player.seekTo(Math.max(currentTime - 10, 0), true);
-        if (isReplayEnabled) {
-            const newTime = Math.max(currentTime - 10, 0);
-            clearCanvas();
-            replayClicks(currentClicks, newTime);
-        }
-    });
-
-    skipBtn.addEventListener('click', () => {
-        const currentTime = player.getCurrentTime();
-        player.seekTo(Math.min(currentTime + 10, player.getDuration()), true);
-    });
-
-    seekBar.addEventListener('input', () => {
-        const time = player.getDuration() * (seekBar.value / 100);
-        player.seekTo(time, true);
-        updateDisplayTime();
-    });
-
-    volumeBar.addEventListener('input', () => {
-        player.setVolume(volumeBar.value * 100);
-    });
-
-    resetBtn.addEventListener('click', () => {
-        player.pauseVideo();
-        resetModal.style.display = 'block';
-    });
-
-    resetConfirm.addEventListener('click', () => {
-        resetClickData(userId, videoId);
-        player.seekTo(0);
-        player.stopVideo();
-        isPlaying = false;
-        resetModal.style.display = 'none'; // モーダルを閉じる
-    });
-
-    resetCancel.addEventListener('click', () => {
-        player.playVideo();
-        resetModal.style.display = 'none'; // モーダルを閉じる
-    });
-      
-    commentModalBS = new bootstrap.Modal(document.getElementById('commentModal'));
-    confirmUpdateModalBS = new bootstrap.Modal(document.getElementById('confirmUpdateModal'));
-
-    function showCommentModal() {
-        setTimeout(() => {
-            commentModalBS.show();
-        }, 300); // 300ミリ秒の遅延を追加
-    }
-
-    // コメントボタンのイベントリスナー
-    commentBtn.addEventListener('click', () => {
-        player.pauseVideo();
-        isRightClickComment = false;
-        checkLatestComment().then(hasComment => {
-            if (hasComment) {
-                confirmUpdateModalBS.show();
-            } else {
-                showCommentModal();
-            }
-        });
-    });
-
-    confirmUpdateYes.addEventListener('click', () => {
-        isUpdatingComment = true;
-        confirmUpdateModalBS.hide();
-        showCommentModal();
-    });
-
-    confirmUpdateNo.addEventListener('click', () => {
-        confirmUpdateModalBS.hide();
-        player.playVideo();
-    });
-
-    commentCancel.addEventListener('click', () => {
-        commentModalBS.hide();
-        player.playVideo();
-        commentInput.value = '';
-    });
-
-    commentSubmit.addEventListener('click', () => {
-        const comment = commentInput.value;
-        if (isRightClickComment) {
-            handleRightClickComment(comment);
-        } else {
-            saveComment(comment, isUpdatingComment);
-        }
-        commentModalBS.hide();
-        player.playVideo();
-        commentInput.value = '';
-        isUpdatingComment = false;
-        isRightClickComment = false;
-    });
-
-    function showModal(modal) {
-        if (modal && typeof modal.show === 'function') {
-            modal.show();
-            document.body.classList.add('modal-open');
-        } else {
-            console.error('Invalid modal object:', modal);
-        }
-    }
-
-    function hideModal(modal) {
-        if (modal && typeof modal.hide === 'function') {
-            modal.hide();
-            document.body.classList.remove('modal-open');
-            const backdrop = document.querySelector('.modal-backdrop');
-            if (backdrop) {
-                backdrop.parentNode.removeChild(backdrop);
-            }
-        } else {
-            console.error('Invalid modal object:', modal);
-        }
-    }
-
-    recordScene.addEventListener('click', () => {
-        handleSceneClick(userId, videoId);
-        contextMenu.style.display = 'none';
-        player.playVideo(); // 動画を再生
-    });
-    
-    recordComment.addEventListener('click', () => {
-        player.pauseVideo();
-        commentModal.style.display = 'block';
-        contextMenu.style.display = 'none';
-        isRightClickComment = true;
-        logRightClickCoordinates(); // デバッグ用
-    });
-
-    recordFusen.addEventListener('click', () => {
-        handleFusenClick(userId, videoId, rightClickX, rightClickY);
-        contextMenu.style.display = 'none';
-        player.playVideo(); // 動画を再生
-    });
-
-    window.addEventListener('click', (event) => {
-        if (event.target === resetModal) {
-            resetModal.style.display = 'none';
-            player.playVideo();
-        } else if (event.target !== contextMenu) {
-            contextMenu.style.display = 'none';
-        }
-    });
-
-    if (!canvas.hasEventListener) {
-        canvas.addEventListener('click', (event) => {
-            if (isCoordinateEnabled) {
-                handleCanvasClick(event, userId, videoId);
-                clickCount++;
-                clickCountDisplay.textContent = clickCount;
-    
-                canvas.classList.add('border-flash');
-                setTimeout(() => {
-                    canvas.classList.remove('border-flash');
-                }, 500);
-            }
-        });
-    
-        // 右クリックでコンテキストメニューを表示
-        canvas.addEventListener('contextmenu', (event) => {
-            event.preventDefault();
-            if (isCoordinateEnabled) {
-                const rect = canvas.getBoundingClientRect();
-                const scaleX = canvas.width / rect.width;
-                const scaleY = canvas.height / rect.height;
-                const x = (event.clientX - rect.left) * scaleX;
-                const y = (event.clientY - rect.top) * scaleY;
-                
-                // 保存する座標はキャンバスの実際のサイズに対する比率で保存
-                rightClickX = x / canvas.width;
-                rightClickY = y / canvas.height;
-                
-                contextMenu.style.top = `${event.clientY}px`;
-                contextMenu.style.left = `${event.clientX}px`;
-                contextMenu.style.display = 'block';
-                player.pauseVideo();
-            }
-        });
-    
-        canvas.hasEventListener = true;
-    }
-
-    function updateDisplayTime() {
-        const currentTime = formatTime(player.getCurrentTime());
-        const duration = formatTime(player.getDuration());
-        timeDisplay.textContent = `${currentTime} / ${duration}`;
-    }
-    function formatTime(seconds) {
-        const minutes = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
-        return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
-    }
-    function clearCanvas() {
-        const canvas = document.getElementById('myCanvas');
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
-
-    setInterval(updateDisplayTime, 1000);
-}
-*/
-
 /**
  * コントロールの初期化
  */
@@ -539,6 +148,48 @@ function initializeControls() {
 
     // 初期状態の設定
     updateButtonStates();
+}
+
+/**
+ * アプリケーションの初期化
+ */
+function initializeApp() {
+    initializePlayer(getVideoId());
+    setupEventListeners();
+    initializeUserInfo();
+}
+
+/**
+ * ユーザー情報の初期化
+ */
+function initializeUserInfo() {
+    getUserId().then(userId => {
+        updateUserInfo(userId);
+        updateVideoInfo();
+        getClickCount(userId, videoId);
+        setupMistakeButton(userId);
+        setupResetButton(userId);
+        setupCanvas(userId);
+    }).catch(handleUserIdError);
+}
+
+/**
+ * ユーザー情報を画面に表示
+ * @param {string} userId - ユーザーID
+ */
+function updateUserInfo(userId) {
+    const userInfoElement = document.getElementById('user-info');
+    userInfoElement.textContent = `ログインユーザーID: ${userId}`;
+}
+
+/**
+ * 再生中の動画情報を画面に表示
+ * （現在のvideoIdを取得し、表示）
+ */
+function updateVideoInfo() {
+    const videoInfoElement = document.getElementById('video-info');
+    const videoId = getVideoId();
+    videoInfoElement.textContent = `再生中のvideoId: ${videoId}`;
 }
 
 // =======================================
@@ -728,6 +379,87 @@ function handleReplayChange() {
     }
     updateButtonStates();
 }
+
+function setupMistakeButton(userId) {
+    const mistakeBtn = document.getElementById('mistakeBtn');
+    if (mistakeBtn) {
+        mistakeBtn.addEventListener('click', () => {
+            if (isPlaying) {
+                handleMistake(userId, videoId);
+            }
+        });
+    } else {
+        console.error("mistakeBtn is null");
+    }
+}
+
+function setupResetButton(userId) {
+    const resetBtn = document.getElementById('resetBtn');
+    const resetModal = document.getElementById('resetModal');
+    const resetConfirm = document.getElementById('resetConfirm');
+    const resetCancel = document.getElementById('resetCancel');
+
+    if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+            player.pauseVideo();
+            resetModal.style.display = 'block';
+        });
+    } else {
+        console.error("resetBtn is null");
+    }
+
+    resetConfirm.addEventListener('click', () => {
+        resetClickData(userId, videoId);
+        player.seekTo(0);
+        player.playVideo();
+        resetModal.style.display = 'none';
+    });
+
+    resetCancel.addEventListener('click', () => {
+        player.playVideo();
+        resetModal.style.display = 'none';
+    });
+}
+
+function setupCanvas(userId) {
+    const canvas = document.getElementById('myCanvas');
+    if (canvas && !canvas.hasEventListener) {
+        canvas.addEventListener('click', (event) => {
+            if (isPlaying && isCoordinateEnabled) {
+                handleCanvasClick(event, userId, videoId);
+            }
+        });
+
+        canvas.addEventListener('contextmenu', (event) => {
+            event.preventDefault();
+            if (isPlaying && isCoordinateEnabled) {
+                handleContextMenu(event);
+            }
+        });
+
+        canvas.hasEventListener = true;
+    } else {
+        console.error("canvas is null");
+    }
+}
+
+function handleContextMenu(event) {
+    rightClickX = event.clientX;
+    rightClickY = event.clientY;
+    contextMenu.style.top = `${rightClickY}px`;
+    contextMenu.style.left = `${rightClickX}px`;
+    contextMenu.style.display = 'block';
+    player.pauseVideo();
+}
+
+function setupEventListeners() {
+    setupCommentModal();
+    setupSpeedControl();
+    setupReplaySettings();
+    setupHeatmapToggle();
+    setupExportData();
+}
+
 
 // ページロード時にクリック座標データを取得して表示
 window.addEventListener('load', fetchClickCoordinates);
@@ -1352,6 +1084,39 @@ function getUserId() {
     });
 }
 
+function drawRedCircleWithFade(x, y) {
+    const canvas = document.getElementById('myCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const canvasRect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / canvasRect.width;
+    const scaleY = canvas.height / canvasRect.height;
+
+    const scaledX = x * scaleX;
+    const scaledY = y * scaleY;
+
+    let opacity = 1.0;
+    const radius = 5;
+    const fadeOutInterval = 30;
+    const fadeOutSteps = 15;
+
+    function fade() {
+        if (opacity > 0) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            ctx.arc(scaledX, scaledY, radius, 0, 2 * Math.PI, false);
+            ctx.fillStyle = `rgba(255, 0, 0, ${opacity})`;
+            ctx.fill();
+            opacity -= 1.0 / fadeOutSteps;
+            setTimeout(fade, fadeOutInterval);
+        } else {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+    }
+
+    fade();
+}
+
 // =======================================
 // その他のユーティリティ関数
 // =======================================
@@ -1955,6 +1720,7 @@ function checkLatestComment() {
     });
 }
 
+
 // =======================================
 // エラー処理と修正
 // =======================================
@@ -1979,21 +1745,33 @@ function handleMistake(userId, videoId) {
             const clickTime = parseFloat(result.click_time);
             const seekTime = Math.max(clickTime - 1, 0);
             player.seekTo(seekTime, true);
-            setTimeout(() => {
-                drawRedCircle(result.x, result.y);
-            }, 1000);
-            clickCount--;
-            clickCountDisplay.textContent = clickCount;
-            updateCoordinateTable(); // テーブルを更新
+            player.playVideo();
+
+            pendingCircle = {
+                x: parseFloat(result.x),
+                y: parseFloat(result.y),
+                displayTime: clickTime
+            };
+
+            const interval = setInterval(() => {
+                if (player.getCurrentTime() >= pendingCircle.displayTime && !isCircleVisible) {
+                    drawRedCircleWithFade(pendingCircle.x, pendingCircle.y);
+                    pendingCircle = null;
+                    clearInterval(interval);
+                }
+            }, 100);
+
+            getClickCount(userId, videoId);
         } else {
             console.error('Error:', result.error);
+            alert('クリック座標の削除に失敗しました: ' + result.error);
         }
     })
     .catch(error => {
         console.error('Error:', error);
+        alert('サーバーへのリクエスト中にエラーが発生しました');
     });
 }
-
 
 
 // YouTubeプレーヤーの準備ができたときに呼び出される関数
