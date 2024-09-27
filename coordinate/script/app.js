@@ -25,6 +25,7 @@ let replayStartTime = 0;
 let replayPauseTime = 0;
 let activeFadeIntervals = [];
 let commentModalBS, confirmUpdateModalBS;
+let isUpdatingComment = false;
 
 // =======================================
 // 初期化関数
@@ -115,11 +116,10 @@ function initializeControls() {
     const confirmUpdateNo = document.getElementById('confirmUpdateNo');
     const mistakeBtn = document.getElementById('mistakeBtn');
     const toggleCoordinateBtn = document.getElementById('toggleCoordinateBtn');
-    const replayBtn = document.getElementById('replayBtn');
-    
-    let isUpdatingComment = false;
+    const replayBtn = document.getElementById('replayBtn');    
 
     // イベントリスナーの設定
+    canvas.addEventListener('click', handleCanvasClick);
     playBtn.addEventListener('click', handlePlayClick);
     pauseBtn.addEventListener('click', handlePauseClick);
     stopBtn.addEventListener('click', handleStopClick);
@@ -139,6 +139,7 @@ function initializeControls() {
     recordFusen.addEventListener('click', handleRecordFusenClick);
     toggleCoordinateBtn.addEventListener('change', handleToggleCoordinateChange);
     replayBtn.addEventListener('change', handleReplayChange);
+
 
     // キャンバスのイベントリスナー設定
     setupCanvasEventListeners(canvas);
@@ -334,20 +335,27 @@ function handleRecordFusenClick() {
 }
 
 function handleToggleCoordinateChange() {
+    console.log('Toggle coordinate button clicked. Current state:', toggleCoordinateBtn.checked);
+    
     if (toggleCoordinateBtn.checked) {
         if (isReplayEnabled) {
+            console.log('Replay mode is enabled. Cannot enable coordinate capture.');
             toggleCoordinateBtn.checked = false;
             alert('リプレイモードをオフにしてから座標取得モードをオンにしてください。');
             return;
         }
         isCoordinateEnabled = true;
+        console.log('Coordinate capture enabled');
         player.pauseVideo();
         enableCoordinateCapture();
     } else {
         isCoordinateEnabled = false;
+        console.log('Coordinate capture disabled');
         player.pauseVideo();
         disableCoordinateCapture();
     }
+    
+    console.log('isCoordinateEnabled:', isCoordinateEnabled);
     updateButtonStates();
 }
 
@@ -486,6 +494,7 @@ window.addEventListener('load', () => {
  */
 function initializeCanvas() {
     const canvas = document.getElementById('myCanvas');
+    //canvas.addEventListener('click', handleCanvasClick);
     ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
@@ -537,15 +546,20 @@ function ensurePlayer(action) {
 // =======================================
 
 function handleCanvasClick(event) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    console.log('Canvas clicked', event);
+    console.log('isCoordinateEnabled:', isCoordinateEnabled);
     if (!isCoordinateEnabled) return;
 
-    const canvas = document.getElementById('myCanvas');
+    const canvas = event.target;
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const x = (event.clientX - rect.left) * scaleX / canvas.width;
-    const y = (event.clientY - rect.top) * scaleY / canvas.height;
+    const x = (event.clientX - rect.left) / canvas.width;
+    const y = (event.clientY - rect.top) / canvas.height;
     const clickTime = player.getCurrentTime();
+
+    console.log('Click coordinates:', x, y);
 
     saveCoordinate(x, y, clickTime);
     visualizeClick(x, y);
@@ -558,6 +572,43 @@ function handleCanvasClick(event) {
         canvas.classList.remove('border-flash');
     }, 500);
 }
+// function handleCanvasClick(event, userId, videoId) {
+//     const canvas = document.getElementById('myCanvas');
+//     const rect = canvas.getBoundingClientRect();
+//     const x = event.clientX - rect.left;
+//     const y = event.clientY - rect.top;
+//     const clickTime = player.getCurrentTime();
+
+//     // 保存する座標はキャンバスの実際のサイズに対する比率で保存
+//     const saveX = x / canvas.clientWidth;
+//     const saveY = y / canvas.clientHeight;
+
+//     // サーバーにデータを送信
+//     fetch('./coordinate/php/save_coordinates.php', {
+//         method: 'POST',
+//         headers: { 'Content-Type': 'application/json' },
+//         body: JSON.stringify({
+//             user_id: userId,
+//             x: saveX,
+//             y: saveY,
+//             click_time: clickTime,
+//             video_id: videoId
+//         })
+//     })
+//     .then(response => response.json())
+//     .then(result => {
+//         if (result.status === "success") {
+//             console.log('Coordinates saved successfully');
+//             updateClickCount(userId, videoId);
+//             updateCoordinateTable(); 
+//         } else {
+//             console.error('Error:', result.error);
+//         }
+//     })
+//     .catch(error => {
+//         console.error('Error:', error);
+//     });
+// }
 
 function saveCoordinate(x, y, clickTime) {
     fetch('./coordinate/php/save_coordinates.php', {
@@ -581,8 +632,12 @@ function saveCoordinate(x, y, clickTime) {
             console.error('Error:', result.error);
         }
     })
+    // .catch(error => {
+    //     console.error('Error:', error);
+    // });
     .catch(error => {
-        console.error('Error:', error);
+        console.error('Error saving coordinates:', error);
+        alert('座標の保存中にエラーが発生しました。');
     });
 }
 
@@ -599,12 +654,14 @@ function enableCoordinateCapture() {
     const canvas = document.getElementById('myCanvas');
     canvas.addEventListener('click', handleCanvasClick);
     canvas.style.cursor = 'crosshair';
+    console.log('Coordinate capture enabled');
 }
 
 function disableCoordinateCapture() {
     const canvas = document.getElementById('myCanvas');
     canvas.removeEventListener('click', handleCanvasClick);
     canvas.style.cursor = 'default';
+    console.log('Coordinate capture disabled');
 }
 
 // =======================================

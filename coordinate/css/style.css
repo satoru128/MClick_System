@@ -32,46 +32,29 @@
     border: 1px solid black;
     background-color: transparent; /* 背景を透明に*/
     opacity: 1; /* 透明度を1に */
+    /* background-color: rgba(255, 0, 0, 0.1); 赤色の半透明背景 */
 }
 
-#videoSelection{
+/* #videoSelection{
     font-size: 13px;
     padding: 3px;
-}
+} */
 
-#info-container{
-    display: flex;
-    width: 640px;
-}
 
-#user-info, #video-info {
-    flex: 1;
-    border: 2px solid #000000;
-    position: relative;
-    padding: 5px;
-    border-radius: 5px;
-    font-weight: bold;
-}
-
-#logout-controls {
+/* #logout-controls {
     width: 640px;
     margin-top: 10px;
-}
+} */
 
 /*リセットボタン*/
-#reset-container {
+/* #reset-container {
     margin-top: 20px; 
     display: flex;
     align-items: center;
 }
 #resetBtn {
     margin-left: 10px;
-    
-}
-
-.modal-backdrop {
-    z-index: 1040;
-  }
+} */
   
   .modal {
     z-index: 1050;

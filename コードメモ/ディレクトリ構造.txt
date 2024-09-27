@@ -1,3 +1,4 @@
+【ディレクトリ構造】
 C:\xampp\htdocs\MClick_System\
 |-- index.php(メインのインデックスページ)
 |-- coordinate\
@@ -41,7 +42,7 @@ C:\xampp\htdocs\MClick_System\
 |   |   |-- dbmanager.php(データベース管理クラス)
 |   |   |-- data_check.php(データチェックを行うスクリプト)
 
-
+【データベースの構造】
 MariaDB [coordinates_db]> desc users;
 +----------+--------------+------+-----+---------+-------+
 | Field    | Type         | Null | Key | Default | Extra |
