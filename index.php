@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="./coordinate/css/style.css">
     <script src="https://www.youtube.com/iframe_api"></script>
     <script src="./coordinate/script/app.js" defer></script>
-    <script src="./coordinate/script/script.js" defer></script>
+    <!-- <script src="./coordinate/script/script.js" defer></script> -->
 </head>
 <body class="bg-light">
     <?php
@@ -86,6 +86,7 @@
                         <h5 class="card-title">座標取得とリプレイ</h5>
                         <div class="d-flex flex-row">
                         <div class="form-check form-switch">
+                            <!-- <input class="form-check-input" type="checkbox" id="toggleCoordinateBtn"> -->
                             <input class="form-check-input" type="checkbox" id="toggleCoordinateBtn">
                             <label class="form-check-label" for="toggleCoordinateBtn">座標取得</label>
                         </div>

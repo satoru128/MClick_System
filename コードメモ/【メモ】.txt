@@ -1,0 +1,105 @@
+/**
+ * コントロールの初期化
+ */
+function initializeControls() {
+    console.log('initializeControls called');
+    initializeCanvas();
+    // 各種ボタンと要素の取得
+    const playBtn = document.getElementById('playBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const muteBtn = document.getElementById('muteBtn');
+    const seekBar = document.getElementById('seekBar');
+    const volumeBar = document.getElementById('volumeBar');
+    const rewindBtn = document.getElementById('rewindBtn');
+    const skipBtn = document.getElementById('skipBtn');
+    const timeDisplay = document.getElementById('timeDisplay');
+    const canvas = document.getElementById('myCanvas');
+    const clickCountDisplay = document.getElementById('clickCount');
+    const resetBtn = document.getElementById('resetBtn');
+    const commentBtn = document.getElementById('commentBtn');
+    const commentModal = document.getElementById('commentModal');
+    const commentSubmit = document.getElementById('commentSubmit');
+    const commentCancel = document.getElementById('commentCancel');
+    const commentInput = document.getElementById('commentInput');
+    const contextMenu = document.getElementById('contextMenu');
+    const recordScene = document.getElementById('recordScene');
+    const recordComment = document.getElementById('recordComment');
+    const recordFusen = document.getElementById('recordFusen');
+    const confirmUpdateModal = document.getElementById('confirmUpdateModal');
+    const confirmUpdateYes = document.getElementById('confirmUpdateYes');
+    const confirmUpdateNo = document.getElementById('confirmUpdateNo');
+    const mistakeBtn = document.getElementById('mistakeBtn');
+    const toggleCoordinateBtn = document.getElementById('toggleCoordinateBtn');
+    const replayBtn = document.getElementById('replayBtn');
+    console.log('toggleCoordinateBtn:', toggleCoordinateBtn);
+    if (toggleCoordinateBtn) {
+        console.log('Adding event listener to toggleCoordinateBtn');
+        toggleCoordinateBtn.addEventListener('change', handleToggleCoordinateChange);
+        console.log('Event listener added to toggleCoordinateBtn');
+    } else {
+        console.error('toggleCoordinateBtn not found');
+    }
+
+    if (replayBtn) {
+        console.log('Adding event listener to replayBtn');
+        replayBtn.addEventListener('change', handleReplayChange);
+        console.log('Event listener added to replayBtn');
+    } else {
+        console.error('replayBtn not found');
+    } 
+
+    // イベントリスナーの設定
+    canvas.addEventListener('click', handleCanvasClick);
+    playBtn.addEventListener('click', handlePlayClick);
+    pauseBtn.addEventListener('click', handlePauseClick);
+    stopBtn.addEventListener('click', handleStopClick);
+    muteBtn.addEventListener('click', handleMuteClick);
+    seekBar.addEventListener('input', handleSeekBarInput);
+    volumeBar.addEventListener('input', handleVolumeBarInput);
+    rewindBtn.addEventListener('click', handleRewindClick);
+    skipBtn.addEventListener('click', handleSkipClick);
+    resetBtn.addEventListener('click', handleResetClick);
+    commentBtn.addEventListener('click', handleCommentClick);
+    confirmUpdateYes.addEventListener('click', handleConfirmUpdateYes);
+    confirmUpdateNo.addEventListener('click', handleConfirmUpdateNo);
+    commentCancel.addEventListener('click', handleCommentCancel);
+    commentSubmit.addEventListener('click', handleCommentSubmit);
+    recordScene.addEventListener('click', handleRecordSceneClick);
+    recordComment.addEventListener('click', handleRecordCommentClick);
+    recordFusen.addEventListener('click', handleRecordFusenClick);
+    // toggleCoordinateBtn.addEventListener('change', handleToggleCoordinateChange);
+    // replayBtn.addEventListener('change', handleReplayChange);
+
+    // キャンバスのイベントリスナー設定
+    setupCanvasEventListeners(canvas);
+
+    // 定期的な時間表示の更新
+    setInterval(updateDisplayTime, 1000);
+
+    // 初期状態の設定
+    updateButtonStates();
+}
+
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOMContentLoaded event fired');
+    
+    // アプリケーションの初期化
+    initApp();
+    
+    // モーダルの初期化（Bootstrapを使用している場合）
+    if (typeof bootstrap !== 'undefined') {
+        window.commentModalBS = new bootstrap.Modal(document.getElementById('commentModal'), {
+            backdrop: 'static',
+            keyboard: false
+        });
+        window.confirmUpdateModalBS = new bootstrap.Modal(document.getElementById('confirmUpdateModal'), {
+            backdrop: 'static',
+            keyboard: false
+        });
+    }
+    
+    // 追加: コントロールの初期化
+    initializeControls();
+});

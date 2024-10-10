@@ -1,28 +1,38 @@
 <?php
-require_once("MYDB.php");
-$pdo = db_connect();
+header('Content-Type: application/json');
 
-// JSONデータを取得
-$input = file_get_contents('php://input');
-$data = json_decode($input, true);
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
-if (json_last_error() !== JSON_ERROR_NONE) {
-    echo json_encode(["status" => "error", "error" => "Invalid JSON data"]);
-    exit();
-}
-
-$user_id = $data['user_id'];
-$x = $data['x'];
-$y = $data['y'];
-$click_time = $data['click_time'];
-$video_id = $data['video_id'];
-
-// データベースに保存
 try {
+    require_once("MYDB.php");
+    $pdo = db_connect();
+
+    // JSONデータを取得
+    $input = file_get_contents('php://input');
+    $data = json_decode($input, true);
+
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        throw new Exception("Invalid JSON data");
+    }
+
+    // データの検証
+    if (!isset($data['user_id'], $data['x'], $data['y'], $data['click_time'], $data['video_id'])) {
+        throw new Exception("Missing required fields");
+    }
+
+    $user_id = $data['user_id'];
+    $x = $data['x'];
+    $y = $data['y'];
+    $click_time = $data['click_time'];
+    $video_id = $data['video_id'];
+
+    // データベースに保存
     $stmt = $pdo->prepare("INSERT INTO click_coordinates (user_id, x_coordinate, y_coordinate, click_time, video_id) VALUES (:user_id, :x, :y, :click_time, :video_id)");
     $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
-    $stmt->bindParam(':x', $x, PDO::PARAM_INT);
-    $stmt->bindParam(':y', $y, PDO::PARAM_INT);
+    $stmt->bindParam(':x', $x, PDO::PARAM_STR);  // Changed to PARAM_STR
+    $stmt->bindParam(':y', $y, PDO::PARAM_STR);  // Changed to PARAM_STR
     $stmt->bindParam(':click_time', $click_time, PDO::PARAM_STR);
     $stmt->bindParam(':video_id', $video_id, PDO::PARAM_STR);
     $stmt->execute();
@@ -54,6 +64,6 @@ try {
 
     echo json_encode(["status" => "success"]);
 } catch (Exception $e) {
-    echo json_encode(["status" => "error", "error" => $e->getMessage()]);
+    echo json_encode(["status" => "error", "message" => $e->getMessage()]);
 }
 ?>

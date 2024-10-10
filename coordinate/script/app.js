@@ -88,6 +88,7 @@ function onPlayerReady(event) {
  * コントロールの初期化
  */
 function initializeControls() {
+    console.log('initializeControls called');
     initializeCanvas();
     // 各種ボタンと要素の取得
     const playBtn = document.getElementById('playBtn');
@@ -116,7 +117,6 @@ function initializeControls() {
     const confirmUpdateNo = document.getElementById('confirmUpdateNo');
     const mistakeBtn = document.getElementById('mistakeBtn');
     const toggleCoordinateBtn = document.getElementById('toggleCoordinateBtn');
-    const replayBtn = document.getElementById('replayBtn');    
 
     // イベントリスナーの設定
     canvas.addEventListener('click', handleCanvasClick);
@@ -139,7 +139,6 @@ function initializeControls() {
     recordFusen.addEventListener('click', handleRecordFusenClick);
     toggleCoordinateBtn.addEventListener('change', handleToggleCoordinateChange);
     replayBtn.addEventListener('change', handleReplayChange);
-
 
     // キャンバスのイベントリスナー設定
     setupCanvasEventListeners(canvas);
@@ -334,28 +333,33 @@ function handleRecordFusenClick() {
     player.playVideo();
 }
 
-function handleToggleCoordinateChange() {
-    console.log('Toggle coordinate button clicked. Current state:', toggleCoordinateBtn.checked);
-    
-    if (toggleCoordinateBtn.checked) {
+function handleToggleCoordinateChange(event) {
+    console.log('handleToggleCoordinateChange called');
+    console.log('Event:', event);
+    console.log('this.checked:', this.checked);
+    console.log('toggleCoordinateBtn.checked:', toggleCoordinateBtn.checked);
+
+    isCoordinateEnabled = event.target.checked;
+    console.log('isCoordinateEnabled set to:', isCoordinateEnabled);
+
+    if (isCoordinateEnabled) {
         if (isReplayEnabled) {
             console.log('Replay mode is enabled. Cannot enable coordinate capture.');
-            toggleCoordinateBtn.checked = false;
+            isCoordinateEnabled = false;
+            event.target.checked = false;
             alert('リプレイモードをオフにしてから座標取得モードをオンにしてください。');
-            return;
+        } else {
+            console.log('Coordinate capture enabled');
+            player.pauseVideo();
+            enableCoordinateCapture();
         }
-        isCoordinateEnabled = true;
-        console.log('Coordinate capture enabled');
-        player.pauseVideo();
-        enableCoordinateCapture();
     } else {
-        isCoordinateEnabled = false;
         console.log('Coordinate capture disabled');
         player.pauseVideo();
         disableCoordinateCapture();
     }
-    
-    console.log('isCoordinateEnabled:', isCoordinateEnabled);
+
+    console.log('isCoordinateEnabled after change:', isCoordinateEnabled);
     updateButtonStates();
 }
 
@@ -546,6 +550,13 @@ function ensurePlayer(action) {
 // =======================================
 
 function handleCanvasClick(event) {
+    console.log('handleCanvasClick called');
+    console.log('isCoordinateEnabled:', isCoordinateEnabled);
+    
+    if (!isCoordinateEnabled) {
+        console.log('Coordinate capture is disabled. Ignoring click.');
+        return;
+    }
     event.preventDefault();
     event.stopPropagation();
 
@@ -561,57 +572,28 @@ function handleCanvasClick(event) {
 
     console.log('Click coordinates:', x, y);
 
-    saveCoordinate(x, y, clickTime);
-    visualizeClick(x, y);
-
-    clickCount++;
-    clickCountDisplay.textContent = clickCount;
-
-    canvas.classList.add('border-flash');
-    setTimeout(() => {
-        canvas.classList.remove('border-flash');
-    }, 500);
+    saveCoordinate(x, y, clickTime)
+        .then(result => {
+            console.log('Save coordinate result:', result);
+            visualizeClick(x, y);
+            return updateClickCount(userId, videoId);
+        })
+        .then(() => {
+            canvas.classList.add('border-flash');
+            setTimeout(() => {
+                canvas.classList.remove('border-flash');
+            }, 500);
+            return updateCoordinateTable();
+        })
+        .catch(error => {
+            console.error('Error in handleCanvasClick:', error);
+            alert('座標の保存中にエラーが発生しました。');
+        });
 }
-// function handleCanvasClick(event, userId, videoId) {
-//     const canvas = document.getElementById('myCanvas');
-//     const rect = canvas.getBoundingClientRect();
-//     const x = event.clientX - rect.left;
-//     const y = event.clientY - rect.top;
-//     const clickTime = player.getCurrentTime();
-
-//     // 保存する座標はキャンバスの実際のサイズに対する比率で保存
-//     const saveX = x / canvas.clientWidth;
-//     const saveY = y / canvas.clientHeight;
-
-//     // サーバーにデータを送信
-//     fetch('./coordinate/php/save_coordinates.php', {
-//         method: 'POST',
-//         headers: { 'Content-Type': 'application/json' },
-//         body: JSON.stringify({
-//             user_id: userId,
-//             x: saveX,
-//             y: saveY,
-//             click_time: clickTime,
-//             video_id: videoId
-//         })
-//     })
-//     .then(response => response.json())
-//     .then(result => {
-//         if (result.status === "success") {
-//             console.log('Coordinates saved successfully');
-//             updateClickCount(userId, videoId);
-//             updateCoordinateTable(); 
-//         } else {
-//             console.error('Error:', result.error);
-//         }
-//     })
-//     .catch(error => {
-//         console.error('Error:', error);
-//     });
-// }
 
 function saveCoordinate(x, y, clickTime) {
-    fetch('./coordinate/php/save_coordinates.php', {
+    console.log('Saving coordinate:', { x, y, clickTime, userId, videoId });
+    return fetch('./coordinate/php/save_coordinates.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -622,22 +604,28 @@ function saveCoordinate(x, y, clickTime) {
             video_id: videoId
         })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.text();
+    })
+    .then(text => {
+        console.log('Raw server response:', text);
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            console.error('JSON parse error:', e);
+            throw new Error('Invalid JSON response: ' + text);
+        }
+    })
     .then(result => {
         if (result.status === "success") {
             console.log('Coordinates saved successfully');
-            updateClickCount(userId, videoId);
-            updateCoordinateTable();
+            return result;  // 成功時にresultを返す
         } else {
-            console.error('Error:', result.error);
+            throw new Error('Server returned error: ' + (result.message || 'Unknown error'));
         }
-    })
-    // .catch(error => {
-    //     console.error('Error:', error);
-    // });
-    .catch(error => {
-        console.error('Error saving coordinates:', error);
-        alert('座標の保存中にエラーが発生しました。');
     });
 }
 
@@ -1191,14 +1179,27 @@ function clearCanvas() {
  * ボタンの状態を更新する
  */
 function updateButtonStates() {
-    toggleCoordinateBtn.disabled = isReplayEnabled;
-    replayBtn.disabled = isCoordinateEnabled;
-    
-    toggleCoordinateBtn.parentElement.classList.toggle('disabled', isReplayEnabled);
-    replayBtn.parentElement.classList.toggle('disabled', isCoordinateEnabled);
-    
-    toggleCoordinateBtn.nextElementSibling.textContent = isCoordinateEnabled ? "座標取得：オン" : "座標取得：オフ";
-    replayBtn.nextElementSibling.textContent = isReplayEnabled ? "リプレイ：オン" : "リプレイ：オフ";
+    console.log('updateButtonStates called');
+    console.log('isCoordinateEnabled:', isCoordinateEnabled);
+    console.log('isReplayEnabled:', isReplayEnabled);
+
+    if (toggleCoordinateBtn) {
+        toggleCoordinateBtn.disabled = isReplayEnabled;
+        toggleCoordinateBtn.checked = isCoordinateEnabled;
+        console.log('Toggle coordinate button state updated:', toggleCoordinateBtn.checked);
+    } else {
+        console.error('toggleCoordinateBtn not found');
+    }
+
+    if (replayBtn) {
+        replayBtn.disabled = isCoordinateEnabled;
+        replayBtn.checked = isReplayEnabled;
+        console.log('Replay button state updated:', replayBtn.checked);
+    } else {
+        console.error('replayBtn not found');
+    }
+
+    // その他のボタン状態の更新
 }
 
 /**
@@ -1292,11 +1293,31 @@ function displayClickCoordinates(coordinates) {
  * クリック座標テーブルを更新
  */
 function updateCoordinateTable() {
+    console.log('Updating coordinate table...');
     fetch('./coordinate/php/fetch_click_coordinates.php')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.text();
+        })
+        .then(text => {
+            console.log('Raw server response:', text);
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                console.error('JSON parse error:', e);
+                throw new Error('Invalid JSON response: ' + text);
+            }
+        })
         .then(data => {
+            console.log('Parsed data:', data);
             if (data.status === 'success') {
                 const container = document.getElementById('coordinate-data');
+                if (!container) {
+                    console.error('coordinate-data container not found');
+                    return;
+                }
                 container.innerHTML = ''; // 既存のコンテンツをクリア
                 const table = document.createElement('table');
                 table.style.width = '100%';
@@ -1322,7 +1343,7 @@ function updateCoordinateTable() {
                     const row = document.createElement('tr');
                     [coord.id, coord.x_coordinate, coord.y_coordinate, parseFloat(coord.click_time).toFixed(3), coord.comment].forEach(text => {
                         const cell = document.createElement('td');
-                        cell.textContent = text;
+                        cell.textContent = text !== null ? text : 'N/A';
                         cell.style.border = '1px solid #ddd';
                         cell.style.padding = '5px';
                         row.appendChild(cell);
@@ -1331,12 +1352,13 @@ function updateCoordinateTable() {
                 });
 
                 container.appendChild(table);
+                console.log('Coordinate table updated successfully');
             } else {
                 console.error('Error fetching click coordinates:', data.message);
             }
         })
         .catch(error => {
-            console.error('Error:', error);
+            console.error('Error updating coordinate table:', error);
         });
 }
 
@@ -1395,23 +1417,45 @@ function resetClickData(userId, videoId) {
  * @param {string} videoId - ビデオID
  */
 function updateClickCount(userId, videoId) {
-    fetch('./coordinate/php/update_click_count.php', {
+    console.log('Updating click count for user:', userId, 'and video:', videoId);
+    return fetch('./coordinate/php/update_click_count.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: userId, video_id: videoId })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.text();
+    })
+    .then(text => {
+        console.log('Raw server response:', text);
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            console.error('JSON parse error:', e);
+            throw new Error('Invalid JSON response: ' + text);
+        }
+    })
     .then(result => {
         if (result.status === "success") {
             console.log('Click count updated successfully');
             clickCount = result.click_count;
-            document.getElementById('clickCount').textContent = clickCount;
+            const clickCountElement = document.getElementById('clickCount');
+            if (clickCountElement) {
+                clickCountElement.textContent = clickCount;
+            } else {
+                console.warn('clickCount element not found');
+            }
+            return result;
         } else {
-            console.error('Error:', result.error);
+            throw new Error('Server returned error: ' + (result.error || 'Unknown error'));
         }
     })
     .catch(error => {
-        console.error('Error:', error);
+        console.error('Error updating click count:', error);
+        throw error; // Re-throw the error to be caught by the caller
     });
 }
 
@@ -1858,17 +1902,13 @@ window.onerror = function(message, source, lineno, colno, error) {
     return true;
 };
 
-// アプリケーションの初期化
-function initApp() {
-    // ここに追加の初期化コードを記述
-    console.log('Application initialized');
-}
-
-// DOMContentLoadedイベントで初期化を行う
-document.addEventListener('DOMContentLoaded', initApp);
-
-// モーダルの初期化（Bootstrapを使用している場合）
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOMContentLoaded event fired');
+    
+    // アプリケーションの初期化
+    initApp();
+    
+    // モーダルの初期化（Bootstrapを使用している場合）
     if (typeof bootstrap !== 'undefined') {
         window.commentModalBS = new bootstrap.Modal(document.getElementById('commentModal'), {
             backdrop: 'static',
@@ -1878,5 +1918,26 @@ document.addEventListener('DOMContentLoaded', function() {
             backdrop: 'static',
             keyboard: false
         });
+    }
+    
+    // コントロールの初期化
+    initializeControls();
+
+    // toggleCoordinateBtn と replayBtn のイベントリスナー追加
+    const toggleCoordinateBtn = document.getElementById('toggleCoordinateBtn');
+    const replayBtn = document.getElementById('replayBtn');
+
+    if (toggleCoordinateBtn) {
+        console.log('Adding event listener to toggleCoordinateBtn');
+        toggleCoordinateBtn.addEventListener('change', handleToggleCoordinateChange);
+    } else {
+        console.error('toggleCoordinateBtn not found');
+    }
+
+    if (replayBtn) {
+        console.log('Adding event listener to replayBtn');
+        replayBtn.addEventListener('change', handleReplayChange);
+    } else {
+        console.error('replayBtn not found');
     }
 });
